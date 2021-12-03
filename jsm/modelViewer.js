@@ -1,10 +1,10 @@
 import init, { MarchingCubes } from "../pkg/marching_cubes.js";
-import * as THREE from "./../../build/three.module.js";
-import { OrbitControls } from "./threejs/controls/OrbitControls.js";
+import * as THREE from "./build/three.module.js";
+import { OrbitControls } from "./example/jsm/controls/OrbitControls.js";
 import { SlicerControl } from "./views/marker.js";
-import { VolumeRenderShader1 } from './threejs/shaders/VolumeShader.js';
+import { VolumeRenderShader1 } from './example/jsm/shaders/VolumeShader.js';
 import { WEBGL } from "./WebGL.js";
-import { mergeVertices } from "./threejs/utils/BufferGeometryUtils.js";
+import { mergeVertices } from "./example/jsm/utils/BufferGeometryUtils.js";
 
 class ModelViewer {
 

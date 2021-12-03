@@ -1,10 +1,9 @@
-import * as THREE from "./../../build/three.module.js";
+import * as THREE from "./build/three.module.js";
 import { DcmController } from "./dcmController.js";
 import { dualSlider } from "./views/dualSlider.js";
-import { STLExporter } from "./threejs/exporters/STLExporter.js";
-import { PLYExporter } from "./threejs/exporters/PlyExporter.js";
-import { NRRDLoader } from "./threejs/loaders/NRRDLoader.js";
-import { SegmentManager } from "./SegmentManager.js"
+import { STLExporter } from "./example/jsm/exporters/STLExporter.js";
+import { PLYExporter } from "./example/jsm/exporters/PlyExporter.js";
+import { NRRDLoader } from "./example/jsm/loaders/NRRDLoader.js";
 
 let fileRegex = /(\w+)_(\d+)[x,_](\d+)[x,_](\d+)_(\w+)[_s(\d+)]?\.*/;
 

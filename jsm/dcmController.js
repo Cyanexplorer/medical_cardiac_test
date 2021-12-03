@@ -1,8 +1,6 @@
 import { ModelViewer } from "./modelViewer.js";
 import { SubRenderer } from "./SubRenderer.js";
 import { SegmentManager, MaskImage } from "./SegmentManager.js"
-import { dcmViewer } from "./views/dcmViewer.js"
-import { VolumeRenderShader1 } from "./threejs/shaders/VolumeShader.js";
 
 let sampling = function(volDims, dataBuffer, ratio) {
 	let index = 0

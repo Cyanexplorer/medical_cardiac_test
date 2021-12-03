@@ -1,8 +1,7 @@
-import * as THREE from "./../../build/three.module.js";
-import { MMDLoader } from "./threejs/loaders/MMDLoader.js";
+import * as THREE from "./build/three.module.js";
+import { MMDLoader } from "./example/jsm/loaders/MMDLoader.js";
 import { SlicerControl } from "./views/marker.js";
-import { OrbitControls } from "./threejs/controls/OrbitControls.js";
-import { OutlineEffect } from './threejs/effects/OutlineEffect.js';
+import { OutlineEffect } from './example/jsm/effects/OutlineEffect.js';
 
 class SubRenderer{
 

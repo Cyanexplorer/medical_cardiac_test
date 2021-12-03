@@ -1,4 +1,4 @@
-import * as THREE from "./../../../build/three.module.js";
+import * as THREE from "./../build/three.module.js";
 
 const opacity_focused = 0.6
 const opacity_not_focused = 0.3

@@ -828,7 +828,7 @@ class SizeBased {
 	}
 }
 
-import * as THREE from "./../../build/three.module.js"
+import * as THREE from "./build/three.module.js"
 class Scissor {
 	constructor(dims) {
 		let size = dims[0]
