@@ -13,12 +13,12 @@ let clickEvent = new Event('click')
 let inputEvent = new Event('input')
 
 const colormaps = {
-	"Cool Warm": new THREE.TextureLoader().load("../colormaps/cool-warm-paraview.png"),
-	"Matplotlib Plasma": new THREE.TextureLoader().load("../colormaps/matplotlib-plasma.png"),
-	"Matplotlib Virdis": new THREE.TextureLoader().load("../colormaps/matplotlib-virdis.png"),
-	"Rainbow": new THREE.TextureLoader().load("../colormaps/rainbow.png"),
-	"Samsel Linear Green": new THREE.TextureLoader().load("../colormaps/samsel-linear-green.png"),
-	"Samsel Linear YGB 1211G": new THREE.TextureLoader().load("../colormaps/samsel-linear-ygb-1211g.png"),
+	"Cool Warm": new THREE.TextureLoader().load("colormaps/cool-warm-paraview.png"),
+	"Matplotlib Plasma": new THREE.TextureLoader().load("colormaps/matplotlib-plasma.png"),
+	"Matplotlib Virdis": new THREE.TextureLoader().load("colormaps/matplotlib-virdis.png"),
+	"Rainbow": new THREE.TextureLoader().load("colormaps/rainbow.png"),
+	"Samsel Linear Green": new THREE.TextureLoader().load("colormaps/samsel-linear-green.png"),
+	"Samsel Linear YGB 1211G": new THREE.TextureLoader().load("colormaps/samsel-linear-ygb-1211g.png"),
 };
 
 let showProgress = function (option, title, cancellable) {
