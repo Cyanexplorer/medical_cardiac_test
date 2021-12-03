@@ -763,7 +763,7 @@ class DisplayPage extends Page {
 class FileDownload {
 	constructor() {
 		this.modelType = ['STL', 'PLY']
-		this.segmentType = ['RAW', 'JPG', 'PNG']
+		this.segmentType = ['JPG', 'PNG']
 
 		let downloadLink = document.createElement('a')
 		let stlExporter = new STLExporter()
