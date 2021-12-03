@@ -156,12 +156,12 @@ class DcmController {
 				},
 				infoEnable: {
 					enable: false,
-					imgsrc: './../svg/info.svg',
+					imgsrc: 'img/svg/info.svg',
 					process: (e, axis, btn) => {}
 				},
 				moveTop: {
 					enable: true,
-					imgsrc: './../svg/movetop.svg',
+					imgsrc: 'img/svg/movetop.svg',
 					process: (e, axis, btn) => {
 						let value = (this.uvdDims[2 - axis] > 0) ? 0 : -1 
 						this.index[axis] = value
@@ -171,7 +171,7 @@ class DcmController {
 				},
 				moveCenter: {
 					enable: true,
-					imgsrc: './../svg/movecenter.svg',
+					imgsrc: 'img/svg/movecenter.svg',
 					process: (e, axis, btn) => {
 						let value = parseInt(Number(this.uvdDims[2 - axis] / 2 - 1))
 						this.index[axis] = value
@@ -181,7 +181,7 @@ class DcmController {
 				},
 				moveDown: {
 					enable: true,
-					imgsrc: './../svg/movedown.svg',
+					imgsrc: 'img/svg/movedown.svg',
 					process: (e, axis, btn) => {
 						let value = this.uvdDims[2 - axis] - 1
 						this.index[axis] = value
@@ -191,7 +191,7 @@ class DcmController {
 				},
 				exposureInc: {
 					enable: true,
-					imgsrc: './../svg/exposureInc.svg',
+					imgsrc: 'img/svg/exposureInc.svg',
 					process: (e, axis, btn) => {
 						let mImg = this.managers.maskImages[axis]
 						if (mImg.exposure < 2) {
@@ -202,7 +202,7 @@ class DcmController {
 				},
 				exposureDec: {
 					enable: true,
-					imgsrc: './../svg/exposureDec.svg',
+					imgsrc: 'img/svg/exposureDec.svg',
 					process: (e, axis, btn) => {
 						let mImg = this.managers.maskImages[axis]
 						if (mImg.exposure > 0.1) {
@@ -213,7 +213,7 @@ class DcmController {
 				},
 				contrastInc: {
 					enable: true,
-					imgsrc: './../svg/contrastInc.svg',
+					imgsrc: 'img/svg/contrastInc.svg',
 					process: (e, axis, btn) => {
 						let mImg = this.managers.maskImages[axis]
 						if (mImg.contrast < 2) {
@@ -224,7 +224,7 @@ class DcmController {
 				},
 				contrastDec: {
 					enable: true,
-					imgsrc: './../svg/contrastDec.svg',
+					imgsrc: 'img/svg/contrastDec.svg',
 					process: (e, axis, btn) => {
 						let mImg = this.managers.maskImages[axis]
 						if (mImg.contrast > 0.1) {
