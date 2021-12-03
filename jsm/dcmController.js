@@ -118,7 +118,7 @@ class DcmController {
 			let funcbtns = {
 				sizeControl: {
 					enable:true,
-					imgsrc: './../svg/maximun.svg',
+					imgsrc: 'img/svg/maximun.svg',
 					value:-1,
 					process: (e, axis, btn) => {
 						
