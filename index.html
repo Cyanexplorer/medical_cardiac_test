@@ -218,23 +218,6 @@
 
                             <hr>
 
-                            <h6>Box Mask:</h6>
-                            <div class="row">
-                                <label class="col-6">X:</label>
-                                <input id="box-maskvalue-x" type="text" class="col-6">
-                            </div>
-
-                            <div class="row">
-                                <label class="col-6">Y:</label>
-                                <input id="box-maskvalue-y" type="text" class="col-6">
-                            </div>
-
-                            <div class="row">
-                                <label class="col-6">Z:</label>
-                                <input id="box-maskvalue-z" type="text" class="col-6">
-                            </div>
-
-                            <hr>
 
                             <div class="row">
                                 <button id="maskBtn" class="btn btn-sm btn-outline-dark">Apply</button>
@@ -282,17 +265,17 @@
                                 <Button class="btn btn-sm btn-outline-dark col-6 d-flex" data-mode="REGIONGROW">
                                     <img width="20" title="region growing" src="img/svg/regionGrowing.svg">RegionGrow
                                 </Button>
-                                <Button class="btn btn-sm btn-outline-dark col-6 d-flex" data-mode="NONE">
+                                <Button class="btn btn-sm btn-outline-dark col-6 d-flex d-none" data-mode="NONE">
                                     <img width="20" title="model" src="img/svg/sizebased.svg">SizeBased
                                 </Button>
-                                <Button class="btn btn-sm btn-outline-dark col-6 d-flex" data-mode="NONE">ML</Button>
+                                <Button class="btn btn-sm btn-outline-dark col-6 d-flex d-none" data-mode="NONE">ML</Button>
                                 <Button class="btn btn-sm btn-outline-dark col-6 d-flex" data-mode="LOGIC">
                                     <img width="20" title="model" src="img/svg/logic.svg">Logic
                                 </Button>
                                 <Button class="btn btn-sm btn-outline-dark col-6 d-flex" data-mode="MORPH">
                                     <img width="20" title="model" src="img/svg/morphology.svg">Blur
                                 </Button>
-                                <Button class="btn btn-sm btn-outline-dark col-6 d-flex" data-mode="SCISSOR">
+                                <Button class="btn btn-sm btn-outline-dark col-6 d-flex d-none" data-mode="SCISSOR">
                                     Scissor
                                 </Button>
                             </div>
