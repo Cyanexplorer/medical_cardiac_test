@@ -118,7 +118,7 @@ class DcmController {
 			let funcbtns = {
 				sizeControl: {
 					enable:true,
-					imgsrc: './../img/svg/maximun.svg',
+					imgsrc: './../svg/maximun.svg',
 					value:-1,
 					process: (e, axis, btn) => {
 						
@@ -156,12 +156,12 @@ class DcmController {
 				},
 				infoEnable: {
 					enable: false,
-					imgsrc: './../img/svg/info.svg',
+					imgsrc: './../svg/info.svg',
 					process: (e, axis, btn) => {}
 				},
 				moveTop: {
 					enable: true,
-					imgsrc: './../img/svg/movetop.svg',
+					imgsrc: './../svg/movetop.svg',
 					process: (e, axis, btn) => {
 						let value = (this.uvdDims[2 - axis] > 0) ? 0 : -1 
 						this.index[axis] = value
@@ -171,7 +171,7 @@ class DcmController {
 				},
 				moveCenter: {
 					enable: true,
-					imgsrc: './../img/svg/movecenter.svg',
+					imgsrc: './../svg/movecenter.svg',
 					process: (e, axis, btn) => {
 						let value = parseInt(Number(this.uvdDims[2 - axis] / 2 - 1))
 						this.index[axis] = value
@@ -181,7 +181,7 @@ class DcmController {
 				},
 				moveDown: {
 					enable: true,
-					imgsrc: './../img/svg/movedown.svg',
+					imgsrc: './../svg/movedown.svg',
 					process: (e, axis, btn) => {
 						let value = this.uvdDims[2 - axis] - 1
 						this.index[axis] = value
@@ -191,7 +191,7 @@ class DcmController {
 				},
 				exposureInc: {
 					enable: true,
-					imgsrc: './../img/svg/exposureInc.svg',
+					imgsrc: './../svg/exposureInc.svg',
 					process: (e, axis, btn) => {
 						let mImg = this.managers.maskImages[axis]
 						if (mImg.exposure < 2) {
@@ -202,7 +202,7 @@ class DcmController {
 				},
 				exposureDec: {
 					enable: true,
-					imgsrc: './../img/svg/exposureDec.svg',
+					imgsrc: './../svg/exposureDec.svg',
 					process: (e, axis, btn) => {
 						let mImg = this.managers.maskImages[axis]
 						if (mImg.exposure > 0.1) {
@@ -213,7 +213,7 @@ class DcmController {
 				},
 				contrastInc: {
 					enable: true,
-					imgsrc: './../img/svg/contrastInc.svg',
+					imgsrc: './../svg/contrastInc.svg',
 					process: (e, axis, btn) => {
 						let mImg = this.managers.maskImages[axis]
 						if (mImg.contrast < 2) {
@@ -224,7 +224,7 @@ class DcmController {
 				},
 				contrastDec: {
 					enable: true,
-					imgsrc: './../img/svg/contrastDec.svg',
+					imgsrc: './../svg/contrastDec.svg',
 					process: (e, axis, btn) => {
 						let mImg = this.managers.maskImages[axis]
 						if (mImg.contrast > 0.1) {
