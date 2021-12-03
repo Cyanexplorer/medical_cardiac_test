@@ -1,0 +1,110 @@
+.disable_scrollbars::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+}
+
+button.active img {
+    filter: invert(1) hue-rotate(180deg);
+}
+
+button:hover img {
+    filter: invert(1) hue-rotate(180deg);
+}
+
+.controlPanel {
+    position: absolute;
+    display:flex;
+    flex-direction:column;
+    top: 0px;
+    right: 0px;
+    background-color: rgba(1,1,1,0.1);
+    backdrop-filter: blur(50px);
+    width: 300px;
+    height: 100%
+}
+
+.cardLayout {
+    border-radius: 10px;
+    padding: 10px;
+    margin: 4px;
+    background-color: rgba(255,255,255,0.5);
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius:4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+.btn-collapse {
+    display: flex;
+}
+
+.btn-collapse::after {
+    flex-shrink: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-left: auto;
+    content: "";
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23212529'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-size: 1.25rem;
+    transition: transform .2s ease-in-out;
+}
+
+.btn-collapse:not(.collapsed)::after {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%230c63e4'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
+    transform: rotate(-180deg);
+}
+
+input[type=file] {
+    opacity: 0;
+    position: absolute;
+}
+
+.segment-control-panel button{
+    width:20%;
+}
+
+#statusBar{
+    width:100vw;
+    background-color:grey;
+}
+
+#statusBar button{
+    color:white;
+}
+
+#statusBar button:hover {
+    color:grey;
+    background-color: white;
+}
+
+.verticalDiv{
+    align-self:center;
+    height:80%;
+    width:2px;
+    background-color:darkgrey;
+    border-radius:1px;
+}
+
+.workingScene{
+    height:calc(100% - 31px);
+    position:relative
+}
+
+.tool{
+    margin: 0.5rem;
+    flex-direction:column;
+}
