@@ -119,7 +119,7 @@ class SubRenderer{
 	loadModel () {
 
 		const loader = new MMDLoader()
-		loader.load('../model/mmd/kizunaai4.pmx', (mesh) => {
+		loader.load('model/mmd/kizunaai4.pmx', (mesh) => {
 			mesh.name = "idol"
 			mesh.position.set(0, -2.8, -0.4)
 			mesh.geometry.center()
