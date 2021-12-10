@@ -1,3 +1,10 @@
+body *{
+    user-select:none;
+    -webkit-user-select:none;
+    -moz-user-select:none;
+    -ms-user-select:none;
+}
+
 .disable_scrollbars::-webkit-scrollbar {
     width: 0px;
     background: transparent;
@@ -14,13 +21,41 @@ button:hover img {
 .controlPanel {
     position: absolute;
     display:flex;
-    flex-direction:column;
     top: 0px;
     right: 0px;
     background-color: rgba(1,1,1,0.1);
     backdrop-filter: blur(50px);
-    width: 300px;
+    width: 320px;
+    min-width: 320px;
+    max-width: 600px;
     height: 100%
+}
+
+.controlPanelContent {
+    display: flex;
+    flex-direction: column;
+    width:100%;
+}
+
+.adjBar {
+    width: 20px;
+    height: 100%;
+}
+
+.adjBar:hover::after{
+    cursor:col-resize;
+}
+
+.adjBar::after {
+    margin-left:3px;
+    margin-bottom:4px;
+    margin-top:4px;
+    border-radius:4px;
+    content:'||';
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: calc( 100% - 4px);
 }
 
 .cardLayout {
@@ -77,6 +112,10 @@ input[type=file] {
     width:20%;
 }
 
+.viewport canvas{
+    background:black;
+}
+
 #statusBar{
     width:100vw;
     background-color:grey;
@@ -107,4 +146,67 @@ input[type=file] {
 .tool{
     margin: 0.5rem;
     flex-direction:column;
+}
+
+.cube{
+    position:relative;
+    width:100px;
+    height:100px;
+    transform-style:preserve-3d;
+}
+
+.cube div{
+    position:absolute;
+    top:0px;
+    left:0px;
+    width:100%;
+    height:100%;
+    transform-style:preserve-3d;
+}
+
+.cube .cubeFace {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(white, darkgrey);
+}
+
+.cubeFace label{
+    font-size:22px;
+    font:bold;
+    color:dimgray;
+}
+
+.cube div span {
+    transform: rotateY(calc(90deg * var(--i))) translateZ(50px);
+}
+
+.cube .top {
+    transform: rotateX(90deg) translateZ(50px);
+}
+
+.cube .toop:before {
+    content: '';
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+    transform: translateZ(-150px);
+    filter: blur(20px);
+    background: grey;
+    box-shadow: 0 0 10px rgba(1,1,1,0.2), 0 0 12px rgba(1,1,1,0.4), 0 0 14px rgba(1,1,1,0.8)
+}
+
+.cube .bottom {
+    transform: rotateX(-90deg) translateZ(50px)
+}
+
+.cube .cubeFace:hover {
+    background: radial-gradient(white, lightgrey);
 }

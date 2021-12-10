@@ -4,6 +4,7 @@
     width: calc(100vh / 3 + 20px);
     display: flex;
     position: relative;
+    --i:320px;
 }
 
 .tmpViewer {
@@ -18,7 +19,7 @@
     position: absolute;
     top: 0px;
     left: 0px;
-    width: calc(100vw - 300px);
+    width: calc(100vw - var(--i));
     height: 100%;
     z-index:99;
 }
