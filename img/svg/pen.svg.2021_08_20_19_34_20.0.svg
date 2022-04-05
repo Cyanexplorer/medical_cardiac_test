@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="24mm"
+   height="24mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.1 (c68e22c387, 2021-05-23)"
+   sodipodi:docname="pen.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="7.5571615"
+     inkscape:cx="15.415841"
+     inkscape:cy="51.209704"
+     inkscape:window-width="1920"
+     inkscape:window-height="1001"
+     inkscape:window-x="-9"
+     inkscape:window-y="1341"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs2" />
+  <g
+     inkscape:label="圖層 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <circle
+       style="fill:#ff0000;fill-opacity:0;fill-rule:evenodd;stroke:#010000;stroke-width:19.396;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       id="path55"
+       cx="24.752131"
+       cy="235.68271"
+       r="27.241547" />
+    <path
+       style="fill:#000000;stroke:#000000;stroke-width:39.6;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="m 223.571,246.28429 c -17.58822,19.45717 -47.22369,19.38188 -66.66361,0 -19.2903,-19.23272 -42.86992,-20.253 -64.997032,0"
+       sodipodi:nodetypes="csc" />
+    <g
+       id="g53258"
+       transform="matrix(0.86317151,-0.11487783,0.11487783,0.86317151,-4.6432163,16.651721)">
+      <rect
+         style="fill:#000000;fill-opacity:1;stroke:#ff0000;stroke-width:0;stroke-linecap:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:0.00483093"
+         id="rect3463"
+         width="57.190372"
+         height="180.23631"
+         x="89.843208"
+         y="-35.657326"
+         transform="rotate(26.498979)" />
+      <rect
+         style="fill:#000000;fill-opacity:1;stroke:#ff0000;stroke-width:0;stroke-linecap:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:0.00483093"
+         id="rect3463-5"
+         width="73.274712"
+         height="29.976011"
+         x="73.758873"
+         y="144.57898"
+         transform="rotate(26.498979)" />
+    </g>
+  </g>
+</svg>
