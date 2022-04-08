@@ -48,4 +48,3 @@ export interface InitOutput {
 * @returns {Promise<InitOutput>}
 */
 export default function init (module_or_path?: InitInput | Promise<InitInput>): Promise<InitOutput>;
-        

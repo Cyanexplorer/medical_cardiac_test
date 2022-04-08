@@ -65,10 +65,15 @@ export class MarchingCubes {
         return obj;
     }
 
-    free() {
+    __destroy_into_raw() {
         const ptr = this.ptr;
         this.ptr = 0;
 
+        return ptr;
+    }
+
+    free() {
+        const ptr = this.__destroy_into_raw();
         wasm.__wbg_marchingcubes_free(ptr);
     }
     /**
@@ -108,7 +113,6 @@ export class MarchingCubes {
 
 async function load(module, imports) {
     if (typeof Response === 'function' && module instanceof Response) {
-
         if (typeof WebAssembly.instantiateStreaming === 'function') {
             try {
                 return await WebAssembly.instantiateStreaming(module, imports);
@@ -127,7 +131,6 @@ async function load(module, imports) {
         return await WebAssembly.instantiate(bytes, imports);
 
     } else {
-
         const instance = await WebAssembly.instantiate(module, imports);
 
         if (instance instanceof WebAssembly.Instance) {
@@ -141,7 +144,7 @@ async function load(module, imports) {
 
 async function init(input) {
     if (typeof input === 'undefined') {
-        input = import.meta.url.replace(/\.js$/, '_bg.wasm');
+        input = new URL('marching_cubes_bg.wasm', import.meta.url);
     }
     const imports = {};
     imports.wbg = {};
@@ -149,11 +152,11 @@ async function init(input) {
         var ret = wasm.memory;
         return addHeapObject(ret);
     };
-    imports.wbg.__wbg_buffer_bc64154385c04ac4 = function(arg0) {
+    imports.wbg.__wbg_buffer_5e74a88a1424a2e0 = function(arg0) {
         var ret = getObject(arg0).buffer;
         return addHeapObject(ret);
     };
-    imports.wbg.__wbg_newwithbyteoffsetandlength_193d0d8755287921 = function(arg0, arg1, arg2) {
+    imports.wbg.__wbg_newwithbyteoffsetandlength_ad2916c6fa7d4c6f = function(arg0, arg1, arg2) {
         var ret = new Float32Array(getObject(arg0), arg1 >>> 0, arg2 >>> 0);
         return addHeapObject(ret);
     };
@@ -167,6 +170,8 @@ async function init(input) {
     if (typeof input === 'string' || (typeof Request === 'function' && input instanceof Request) || (typeof URL === 'function' && input instanceof URL)) {
         input = fetch(input);
     }
+
+
 
     const { instance, module } = await load(await input, imports);
 
