@@ -1,11 +1,3 @@
-.viewer-layout {
-    height: 100%;
-    width: 100%;
-    display: flex;
-    position: relative;
-    animation:flyout .5s;
-}
-
 .viewer-group {
     width: 100%;
     flex: 1 1 auto;
@@ -23,114 +15,84 @@
     flex-wrap: wrap;
 }
 
-.viewer-group .small-container {
-    width: calc(100% / 2);
+/*image container*/
+.imgContainer {
+    position: absolute;
+    top:0%;
+    left:0%;
+    width: calc(100% / 3);
     height: 50%;
+    z-index: 0;
+    transition: width .5s, height .5s, top .5s, left .5s, z-index 0s .5s;
 }
 
-.viewer-group .medium-container{
+.container_topLayer {
+    z-index: 1;
+    transition: width .5s, height .5s, top .5s, left .5s;
+}
+
+/*container sizw*/
+.container_1x2{
     width: calc(100% / 3);
     height: 100%;
 }
 
-.centertopView {
-    --top: 0%;
-    --left: calc(100% / 3);
+.container_2x1{
+    width: calc(200% / 3);
+    height: 50%;
 }
 
-.lefttopView {
-    --top: 0%;
-    --left: 0%;
-}
-
-.righttopView {
-    --top: 0%;
-    --left: calc(200% / 3);
-}
-
-.leftbottomView {
-    --top: 50%;
-    --left: 0%;
-}
-
-.centerbottomView {
-    --top: 50%;
-    --left: calc(100% / 3);
-}
-
-.rightbottomView {
-    --top: 50%;
-    --left: calc(200% / 3);
-}
-
-.centerViewer {
-    position: absolute;
-    top: 0px;
-    left: 0px;
+.container_2x2{
     width: calc(200% / 3);
     height: 100%;
-    z-index: 99;
-    animation: flyin .5s;
 }
 
-@keyframes flyin{
-    0% {
-        position: absolute;
-        top: var(--top);
-        left: var(--left);
-        width: calc(100% / 3);
-        height: 50%;
-        z-index: 99;
-    }
-    100% {
-        position: absolute;
-        top: 0px;
-        left: 0px;
-        width: calc(200% / 3);
-        height: 100%;
-        z-index: 99;
-    }
+.container_3x3{
+    width: 100%;
+    height: 100%;
 }
 
-@keyframes flyout {
-    0% {
-        position: absolute;
-        top: 0px;
-        left: 0px;
-        width: calc(200% / 3);
-        height: 100%;
-        z-index: 99;
-    }
-
-    100% {
-        position: absolute;
-        top: var(--top);
-        left: var(--left);
-        width: calc(100% / 3);
-        height: 50%;
-        z-index: 99;
-    }
+/*container position*/
+.container_centertop {
+    top: 0%;
+    left: calc(100% / 3);
 }
 
-.centerViewer .lftSlider .viewer-slider {
-    transition: width 0.5s;
-    width: 80vh;
+.container_lefttop {
+    top: 0% !important;
+    left: 0% !important;
 }
 
-.centerViewer .viewer-slider {
-    transition: width 0.5s;
-    width: 80%;
+.container_righttop {
+    top: 0%;
+    left: calc(200% / 3);
+}
+
+.container_leftbottom {
+    top: 50%;
+    left: 0%;
+}
+
+.container_centerbottom {
+    top: 50%;
+    left: calc(100% / 3);
+}
+
+.container_rightbottom {
+    top: 50%;
+    left: calc(200% / 3);
 }
 
 .viewer-slider {
     -webkit-appearance: none;
     outline: none;
-    width: 25vh;
-    /*background-color: rgb(180,180,180);*/
+    width: 60%;
     border-radius: 12px;
+    box-shadow: inset 0px 0px 5px #00000047;
 }
 
 .viewer-body {
+    position: relative;
     background-color: transparent;
     backdrop-filter: blur(50px);
     height: 100%;
@@ -143,7 +105,7 @@
 
 .viewport {
     width: 90%;
-    height: calc( 100% - 240px);
+    height: 90%;
     padding: 10px;
     position: relative;
 }
@@ -344,8 +306,10 @@
     flex-direction:column;
     position: absolute;
     right: 0px;
+    top: 0px;
     border-radius: 15px;
     backdrop-filter: blur(10px);
+    box-shadow: inset 0px 0px 5px #00000047;
 }
 
 .viewer-slider::-webkit-slider-runnable-track {
@@ -358,6 +322,7 @@
     height: 15px;
     margin-top: 0px;
     border-radius: 50%;
+    background-color:rgb(88, 88, 88);
 }
 
 .viewer-slider::-webkit-slider-thumb:hover {
@@ -365,6 +330,7 @@
     transform:scale(160%, 160%);
     filter: brightness(120%);
     transition:transform 0.5s, filter 0.5s;
+    background-color:rgb(179, 179, 179);
 }
 
 #horizontalView input[type=range]::-webkit-slider-thumb {
@@ -400,13 +366,10 @@
     border-color:palevioletred;
 }
 
-
 #coronalView .viewer-body {
     background-color: rgba(144, 238, 144, 0.25);
     border-color:lightgreen;
 }
-
-
 
 #sagittalView .viewer-body {
     background-color: rgba(135, 206, 250, 0.25);

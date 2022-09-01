@@ -53,29 +53,39 @@
     box-shadow: 2px 2px 1px rgb(0 0 0 / 50%), inset 0px 0px 5px rgb(255 255 255 / 50%);
 }
 
+.titleBtnGroup {
+    margin: 4px 4px 0 4px;
+    min-height: 45px;
+}
+
 .titleBtn {
+    height: 100%;
     flex: 1 1 0;
     user-select: none;
-    background-color: cadetblue;
+    background-color: rgb(193 193 193);
     text-align: center;
     text-decoration: none;
     vertical-align: middle;
     display: inline-block;
     font-weight: 400;
     line-height: 1.5;
-    color: white;
-    margin: 0.2rem 0.2rem;
+    /*margin: 0.2rem 0.2rem;*/
     padding: 0.25rem 0.8rem;
-    font-size: .875rem;
+    font-size: 12px;
     border: none;
-    border-radius: 0.3rem;
-    box-shadow: 2px 2px 1px rgb(0 0 0 / 50%), inset 0px 0px 5px rgb(255 255 255 / 50%);
+    border-radius: 0.6rem 0.6rem 0 0;
+    box-shadow: 2px 2px 1px rgb(0 0 0 / 50%), inset -2px 2px 5px rgb(0 0 0 / 30%);
+    filter: brightness(75%);
+    z-index: 1;
     /*box-shadow: 2px 2px 1px rgb(0 0 0 / 50%), inset 0px 0px 5px rgba(255,255,255,0.5);*/
 }
 
 .titleBtn.active {
-    filter: brightness(120%) hue-rotate(135deg);
-    box-shadow: inset 2px 2px 2px #0000004f, inset 2px 2px 5px #00000024;
+    z-index: 2;
+    flex: 2 1 0;
+    font-size: 16px;
+    filter: brightness(100%);
+    box-shadow: 2px 2px 1px rgb(0 0 0 / 50%), inset -2px 2px 5px rgb(0 0 0 / 10%);
 }
 
 /*
@@ -90,8 +100,11 @@
 
 .insetBox {
     background-color: white;
-    box-shadow: inset 1px 1px 5px 1px rgb(0 0 0 / 50%);
+    box-shadow: inset 1px 0px 5px 0px rgb(0 0 0 / 50%),
+    inset -1px 0px 5px 0px rgb(0 0 0 / 50%);
     border: none;
+    margin-top: 2px;
+    margin-bottom: 2px;
 
 }
 
@@ -106,13 +119,13 @@
     font-weight: 400;
     line-height: 1.5;
     color: white;
-    margin: 0.2rem 0.2rem;
+    /* margin: 0.2rem 0.2rem; */
     padding: 0.25rem 0.8rem;
     font-size: 8px;
     border: none;
-    border-radius: 0.6rem;
+    /* border-radius: 0.6rem; */
     /* box-shadow: 2px 2px 1px rgb(0 0 0 / 50%), inset 0px 0px 5px rgb(255 255 255 / 50%); */
-    box-shadow: 2px 2px 1px rgb(0 0 0 / 50%), inset 0px 0px 5px rgb(255 255 255 / 50%);
+    box-shadow: 0px 0px 1px rgb(0 0 0 / 50%), inset 0px 0px 5px rgb(0 0 0 / 50%);
     justify-content: space-between;
     align-items: center;
 }
@@ -120,10 +133,9 @@
 .imgBtn {
     display: flex;
     flex-direction: column;
-    flex: 1 1 0;
-    margin: 0.1rem 0.1rem;
-    padding: 0.25rem 0.8rem;
-    background-color: rgba(0, 0, 0, 0.1);
+    flex: 1 1 auto;
+    padding: 1px;
+    background-color: transparent;
     font-size: 1.2rem;
     align-items: center;
     font-weight: 400;
@@ -132,14 +144,17 @@
     text-decoration: none;
     vertical-align: middle;
     border: none;
-    border-radius: 0.2rem;
-    /*box-shadow: 2px 2px 1px rgb(0 0 0 / 50%), inset 0px 0px 5px rgba(255,255,255,0.5);*/
+    justify-content: center;
+    box-shadow: inset 0px 0px 5px #00000047;
 }
 
+.img-nobd{
+    box-shadow: none;
+}
 
-.imgBtn:hover:enabled {
-    /*flex:1 1 12%;
-    transition: flex 0.5s;*/
+.imgBtn:hover {
+    /*flex:1 1 12%;*/
+    background-color: rgba(255, 255, 255, 0.4);
     filter: brightness(120%);
 }
 
@@ -182,7 +197,7 @@
     border-radius: 10px;
     margin-top: 5px;
     margin-bottom: 5px;
-    height: 60px;
+    height: 80px;
 
 }
 
@@ -208,4 +223,38 @@
         width: 100%;
         transform: translateX(100%);
     }
+}
+
+.labelinput{
+    border: none;
+    background: transparent;
+}
+
+.labelinput:hover{
+    border: none;
+    background: transparent;
+}
+
+input[type=range]{
+    vertical-align: middle;
+}
+
+.filter-red{
+    filter: invert(1) sepia(1) contrast(10%) saturate(10000%) hue-rotate(270deg);
+}
+
+.filter-blue{
+    filter: invert(1) sepia(1) contrast(10%) saturate(10000%) hue-rotate(135deg);
+}
+
+.filter-green{
+    filter: invert(1) sepia(1) contrast(10%) saturate(10000%) hue-rotate(45deg);
+}
+
+.filter-gray{
+    filter: invert(1)  contrast(10%) ;
+}
+
+.filter-orange{
+    filter: invert(1) sepia(1) contrast(10%) saturate(10000%) hue-rotate(305deg);
 }

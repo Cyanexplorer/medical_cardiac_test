@@ -53,15 +53,23 @@ button.active img {
     color: white;
 }
 
+.card_header{
+    border-radius: 10px 10px 0 0;
+    padding: 10px 10px 0px 10px;
+    margin: 4px 4px 0 4px;
+    background-color: rgb(193 193 193);
+    box-shadow: 2px 2px 5px rgb(0 0 0 / 50%);
+    z-index: 2;
+    min-height: 45px;
+}
+
 .cardLayout {
-    border-radius: 10px;
-    padding: 10px;
-    margin: 4px;
+    border-radius: 0 0 10px 10px;
+    padding: 0px 0px 10px 0px;
+    margin: 0 4px 4px 4px;
     background-color: rgba(255,255,255,0.7);
-    box-shadow: 2px 2px 5px rgb(0 0 0 / 50%), 
-    inset 2px 2px 5px #0000004f, 
-    inset 2px 2px 10px #00000024, 
-    inset -2px -2px 10px #00000085;;
+    box-shadow: 2px 2px 5px rgb(0 0 0 / 50%);
+    z-index: 2;
 }
 
 
@@ -156,7 +164,7 @@ input[type=file] {
     width: 100%;
     height: 100%;
     background-color: rgb(212,217,222);
-    position: absolute;
+    /*position: absolute;*/
     padding: 0.5rem;
     flex-direction: column;
     overflow: auto;
@@ -278,8 +286,8 @@ input[type=file] {
     position: relative;
     width: calc(100% - 460px);
     height: 100%;
-    min-width: calc(100% - 600px);
-    max-width: calc(100% - 460px);
+    min-width: calc(100% - 640px);
+    max-width: calc(100% - 420px);
 }
 
 .right-scene {
@@ -311,11 +319,9 @@ input[type=color]::-webkit-color-swatch-wrapper {
 }
 
 .groupBtn {
-    width: calc(100% - 0.5rem);
-    padding: 0.25rem 0.8rem;
-    margin: 0.2rem 0.2rem;
+    width: 100%;
+    padding: 0.65rem 1rem;
     background-color: cadetblue;
-    font-size: .875rem;
     color: white;
     display: flex;
     font-weight: 400;
@@ -324,8 +330,7 @@ input[type=color]::-webkit-color-swatch-wrapper {
     text-decoration: none;
     vertical-align: middle;
     border: none;
-    border-radius: 0.6rem;
-    box-shadow: 2px 2px 1px rgb(0 0 0 / 50%), inset 0px 0px 5px rgba(255,255,255,0.5);
+    box-shadow: 0px 2px 2px rgb(0 0 0 / 50%), inset 0px 2px 2px rgba(255,255,255,0.5);
 }
 
 .groupBtn:not(.collapsed)::after {
