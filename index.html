@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 
+</html>
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
@@ -11,6 +13,7 @@
         integrity="sha384-KyZXEAg3QhqLMpG8r+8fhAXLRk2vvoC2f3B09zVXn8CA5QIVfZOJ3BCsw2P0p/We" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
     <link rel="stylesheet" type="text/css" href="css/main.css">
+    <link rel="stylesheet" type="text/css" href="css/ctViewer.css">
     <style>
         body {
             width: 100vw;
@@ -27,24 +30,19 @@
         }
 
         .centerPanel {
-            width: 50vw;
-            min-width: 700px;
             display: flex;
             position: relative;
             background-color: rgba(255, 255, 255, 0.7);
             box-shadow: 2px 2px 5px rgb(0 0 0 / 50%);
             padding: 20px;
             border-radius: 10px;
+            justify-content: center;
         }
 
         .leftPanel {
             display: flex;
             flex-direction: column;
             margin: 10px;
-        }
-
-        .leftPanel div {
-            height: 100%;
         }
 
         .rightPanel {
@@ -124,25 +122,53 @@
         </div>
     </div>
 
-    <div class=" centerPanel">
+    <div class="centerPanel container">
         <div class="leftPanel container">
-            <div class="row">
-                <canvas id="ctViewer" class="col-11 ctViewer"></canvas>
-                <input id="imgSlider" type="range" class="col-1 hSlider" disabled>
-            </div>
+            <div id="ctViewer" class="row" data-layout-type="image">
+                <div class="viewer-body">
+                    <div class="viewport">
+                    </div>
+                    <div class="imgLayerSlider lftSlider">
+                        <i class="go goTop"></i>
+                        <input class="viewer-slider" type="range" id="horizontalRange" disabled />
+                        <i class="go goBottom"></i>
+                    </div>
+                </div>
 
+            </div>
             <hr />
             <div class="row">
                 <h5>Upload File(s)</h5>
-                <button id="importDicomBtn" class="col-12 drawerBtn">DICOM</button>
-                <button id="importRawBtn" class="col-12 drawerBtn">RAW</button>
-                <button id="importNRRDBtn" class="col-12 drawerBtn">NRRD</button>
+                <button id="importDicomBtn" class="col-6 col-lg-3 imgBtn img-nobd">
+                    <img width="64" src="img/svg/dicom.svg" class="filter-red"></img>
+                    <label>DICOM</label>
+                </button>
+                <button id="importRawBtn" class="col-6 col-lg-3  imgBtn img-nobd">
+                    <img width="64" src="img/svg/raw.svg" class="filter-blue"></img>
+                    <label>RAW</label>
+                </button>
+                <button id="importNRRDBtn" class="col-6 col-lg-3  imgBtn img-nobd ">
+                    <img width="64" src="img/svg/nrrd.svg" class="filter-green"></img>
+                    <label>NRRD</label>
+                </button>
+                <button id="importIMGBtn" class="col-6 col-lg-3  imgBtn img-nobd ">
+                    <img width="64" src="img/svg/img.svg" class="filter-orange"></img>
+                    <label>IMG</label>
+                </button>
             </div>
             <hr />
             <div class="row">
                 <h5>Operations</h5>
-                <button id="newInstanceBtn" class="col-6 drawerBtn">Create new Instance</button>
-                <button id="img2rawBtn" class="col-6 drawerBtn">Convert to RAW</button>
+                <button id="newInstanceBtn" class="col-6 imgBtn img-nobd">
+                    <img width="64" src="img/svg/newPage2.svg" class="filter-gray"></img>
+                    <label>New Instance</label>
+
+                </button>
+                <button id="img2rawBtn" class="col-6 imgBtn img-nobd">
+                    <img width="64" src="img/svg/cvt2raw2.svg" class="filter-gray"></img>
+                    <label>Convert to RAW</label>
+
+                </button>
             </div>
         </div>
 
@@ -169,33 +195,33 @@
             <hr />
             <div class="row">
                 <h5>Menu</h5>
-                <textarea class="staticMenu insetBox" readonly>
-功能說明:
-(1)Upload Files:上傳文件，目前支援格式為DICOM和RAW
-(2)Create a new instance:開啟新的編輯頁面
-(3)Convert to RAW:將上傳的影像轉換成RAW格式  
-(4)MetaData:輸入影像的內部參數    
-
-(註)同一批DICOM文件在上傳時可複選，但系統不支援不同批次的CT同時上傳
-
-操作方式:
-由(1)上傳檔案，再開啟(2)對影像進行操作
-                </textarea>
+                <article class="staticMenu">
+                    功能說明:<br>
+                    (1)Upload Files:上傳文件，目前支援格式為DICOM和RAW<br>
+                    (2)Create a new instance:開啟新的編輯頁面<br>
+                    (3)Convert to RAW:將上傳的影像轉換成RAW格式 <br>
+                    (4)MetaData:輸入影像的內部參數<br>
+                    <br>
+                    (註)同一批DICOM文件在上傳時可複選，但系統不支援不同批次的CT同時上傳<br>
+                    <br>
+                    操作方式:<br>
+                    由(1)上傳檔案，再開啟(2)對影像進行操作<br>
+                </article>
             </div>
         </div>
 
     </div>
-    <script type="text/javascript" src="coi-serviceworker.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-U1DAWAznBHeqEIlVSCgzq+c9gqGAJn5c/t99JyeKa9xxaYpSvHU5awsuZVVFIhvj"
         crossorigin="anonymous"></script>
     <script type="text/javascript" src="js/daikon-min.js"></script>
     <script type="text/javascript" src="js/utilities.js"></script>
     <script type="module">
-        import { ImageProcess } from "./jsm/controller/ImageProcessTools.js"
+        import { ImageProcess } from "./jsm/controller/ImageProcessingTools.js"
         import * as THREE from "./jsm/build/three.module.js"
         import { STLExporter } from "./jsm/example/jsm/exporters/STLExporter.js";
         import { PLYExporter } from "./jsm/example/jsm/exporters/PLYExporter.js";
+        import { NRRDLoader } from "./jsm/example/jsm/loaders/NRRDLoader.js";
 
         let progressValue = 0
         let progressBarEnable = false
@@ -248,8 +274,8 @@
 
         }
 
-        class ProgressUpdator{
-            constructor(){
+        class ProgressUpdator {
+            constructor() {
 
             }
         }
@@ -434,12 +460,12 @@
                 this.type = {
                     DCM: 0,
                     NRRD: 1,
-                    RAW: 2
+                    RAW: 2,
+                    IMG: 3
                 }
 
-                //let algorithm = new Kernel().sharpness
-
- let bitConvertor = (buffer, bitsAllocated, bitsStored, endian = 'little') => {
+                // 位元轉換，目前統一以16 uint array作為容器，bitsStored設定數值上限
+                let bitConvertor = (buffer, bitsAllocated, bitsStored, endian = 'little') => {
                     let data = null
 
                     if (bitsAllocated == 16) {
@@ -474,7 +500,7 @@
                     let acquisitionMatrix = image.getAcquisitionMatrix()
                     let sliceThickness = image.getSliceThickness()
                 }
-                
+
                 let imagePositionComparation = (a, b) => {
                     if(a.getSliceLocation() > b.getSliceLocation())
                       return 1
@@ -519,18 +545,17 @@
                                 let bitsStored = images[0].getBitsStored()
 
                                 let thickness = images.length > 1 ? Math.abs(images[1].getImagePosition()[2] - images[0].getImagePosition()[2]) : images[0].getSliceThickness()
-
+                                //console.log(images[0].getImagePosition(),images[0].getPixelSpacing(), images[0].getPixelRepresentation() )
                                 let spacing = images[0].getPixelSpacing()
                                 let position = [0, 0, 0]
 
                                 //alert(images[0].toString())
                                 let d = images[0].getImageDirections()
-                                
+
                                 if(d == null || !(d instanceof Array) || d.length != 6){
                                   d = [1, 0, 0, 0, 1, 0]
                                 }
-                                
-                                
+
                                 let matrix = new THREE.Matrix4()
 
                                 let v0 = new THREE.Vector3()
@@ -550,8 +575,6 @@
                                 v2.addScalar(1)
                                 v2.set(v2.x % 2, v2.y % 2, v2.z % 2)
 
-                                //console.log(v0, v1, v2)
-
                                 matrix = new THREE.Matrix3()
                                 matrix.set(v0.x, v1.x, v2.x, v0.y, v1.y, v2.y, v0.z, v1.z, v2.z)
 
@@ -561,7 +584,6 @@
                                 newVolDims.set(Math.abs(newVolDims.x), Math.abs(newVolDims.y), Math.abs(newVolDims.z))
 
                                 series.concatenateImageData(null, (buffer) => {
-
 
                                     let data = bitConvertor(buffer, bitsAllocated, bitsStored)
                                     //let cvtData1 = bitConvertor(newData, bit, newVolDims.toArray(), 4)
@@ -589,7 +611,7 @@
                                     data = newData
                                     newData = null
 
-                                    //console.log(thickness)
+                                    console.log(data)
                                     pos.set(spacing[0], spacing[1], thickness)
                                     pos.applyMatrix3(matrix)
                                     pos.set(Math.abs(pos.x),
@@ -600,6 +622,8 @@
                                     let date = images[0].getStudyDate()
 
                                     imgInfo.date = date.getFullYear() + '/' + (date.getMonth() * 1 + 1) + '/' + date.getDate()
+                                    imgInfo.patient = 'Unsupported'
+                                    imgInfo.orienation = 'Unsupported'
                                     imgInfo.dims = [newVolDims.x, newVolDims.y, newVolDims.z]
                                     imgInfo.bitsStored = bitsStored
                                     imgInfo.bitsAllocated = bitsAllocated
@@ -624,20 +648,158 @@
                     }, 1000)
                 }
 
-                let loadNRRDFile = (file, onload) => {
-                    const loader = new NRRDLoader();
-                    loader.load(file, function (volume) {
+                let loadIMGFile = (files, onload) => {
+                    if (files.length == 0) {
+                        return
+                    }
 
-                        let imgInfo = {}
-                        imgInfo.date = 'Not support'
-                        imgInfo.dims = [volume.xLength, volume.yLength, volume.zLength]
-                        imgInfo.bitsAllocated = volume.data.byte
-                        imgInfo.bitsStored = volume.data.byte
-                        imgInfo.spacing = [1, 1, 1]
-                        imgInfo.position = [0, 0, 0]
+                    let info = ''
+                    let data = null
+                    let width = 0
+                    let height = 0
+                    let size2 = 0
 
-                        onload(imgInfo, [volume.data.buffer, volume.data.buffer])
+                    let container = new Image()
+                    let convertor = document.createElement('canvas').getContext('2d')
+
+                    let imageDataArray = []
+
+                    container.addEventListener('load', () => {
+                        if (data == null) {
+                            width = container.width
+                            height = container.height
+                            size2 = width * height
+
+                            convertor.canvas.width = width
+                            convertor.canvas.height = height
+                            data = new Uint16Array(size2 * files.length).fill(0)
+                        }
+
+                        convertor.clearRect(0, 0, width, height)
+                        convertor.drawImage(container, 0, 0)
+
+                        imageDataArray.push(convertor.getImageData(0, 0, width, height).data)
+
+                        if (imageDataArray.length == files.length) {
+
+                            for (let i = 0; i < imageDataArray.length; i++) {
+                                let partialData = imageDataArray[i]
+                                let startPos = size2 * i
+
+                                for (let i = 0; i < size2; i++) {
+                                    data[startPos + i] = (partialData[4 * i + 0] + partialData[4 * i + 1] + partialData[4 * i + 2]) / 3
+                                    data[startPos + i] *= partialData[4 * i + 3] / 255
+                                }
+                            }
+
+                            let imgInfo = {}
+                            imgInfo.date = 'Unsupported'
+                            imgInfo.patient = 'Unsupported'
+                            imgInfo.orienation = 'Unsupported'
+                            imgInfo.dims = [width, height, files.length]
+                            imgInfo.bitsStored = 8
+                            imgInfo.bitsAllocated = 16
+                            imgInfo.spacing = [1, 1, 1]
+                            imgInfo.position = 'Unsupported'
+
+                            onload(imgInfo, data)
+                            showProgress(false)
+                        }
+                        else {
+                            process(imageDataArray.length)
+                        }
+
                     })
+
+                    let process = (index) => {
+                        setProgress(index / files.length)
+
+                        let fr = new FileReader();
+
+                        fr.onload = () => {
+                            container.src = fr.result
+                        }
+
+                        fr.readAsDataURL(files[index]);
+                    }
+
+                    showProgress(true, "load images", false)
+                    setTimeout(() => {
+                        process(imageDataArray.length)
+                    }, 1000)
+                }
+
+
+                const loader = new NRRDLoader();
+
+                let getFileURL = (file) => {
+                    return new Promise((resolve) => {
+                        let reader = new FileReader()
+                        reader.onload = () => {
+                            let result = reader.result
+                            resolve(result)
+                        }
+
+                        reader.readAsDataURL(file)
+                    })
+                }
+
+                let loadNRRDFile = (file, onload) => {
+
+
+                    getFileURL(file).then((url) => {
+
+                        loader.load(url, function (volume) {
+
+                            let imgInfo = {}
+                            imgInfo.date = 'Unsupported'
+                            imgInfo.patient = 'Unsupported'
+                            imgInfo.orienation = 'Unsupported'
+                            imgInfo.dims = [volume.xLength, volume.yLength, volume.zLength]
+
+                            imgInfo.spacing = volume.spacing
+                            imgInfo.position = [0, 0, 0]
+
+                            if (volume.data instanceof Uint16Array) {
+                                imgInfo.bitsAllocated = 16
+                                imgInfo.bitsStored = 12
+                            }
+                            else if (volume.data instanceof Uint8Array) {
+                                let data = new Uint16Array(volume.data.length)
+
+                                for (let i = 0; i < data.length; i++) {
+                                    data[i] = (volume.data[i])
+                                }
+
+                                volume.data = data
+                                imgInfo.bitsAllocated = imgInfo.bitsStored = 8
+                            }
+                            else if (volume.data instanceof Float32Array) {
+                                let data = new Uint16Array(volume.data.length)
+
+                                for (let i = 0; i < data.length; i++) {
+                                    data[i] = (Math.round(volume.data[i] * 255))
+                                }
+
+                                volume.data = data
+                                imgInfo.bitsAllocated = imgInfo.bitsStored = 8
+                            }
+                            else {
+                                alert('Unsupported file format!')
+                                return
+                            }
+
+                            if (volume.header.endian == 'big' && imgInfo.bitsAllocated == 16) {
+                                for (let i = 0; i < volume.data.length; i++) {
+                                    let x = volume.data[i]
+                                    volume.data[i] = (x >> 8) | (x << 8)
+                                }
+                            }
+
+                            onload(imgInfo, volume.data)
+                        })
+                    })
+
                 }
 
                 let loadRAWFile = (file, onload) => {
@@ -686,6 +848,9 @@
                         case this.type.RAW:
                             loadRAWFile(files[0], onload)
                             break
+                        case this.type.IMG:
+                            loadIMGFile(files, onload)
+                            break
                         default:
                             alert('Upload file not support!')
                             break
@@ -703,31 +868,40 @@
         let event = new Event('resize')
         let inputEvt = new Event('input')
 
+
+        //window.dispatchEvent(event)
+
         window.onload = () => {
-            let centrePanel = document.querySelector('.centerPanel')
-            let viewer = document.querySelector('.ctViewer')
+
             let divider = document.querySelector('.verticalDiv')
+            let centrePanel = document.querySelector('.centerPanel')
+
+            let container = document.getElementById('ctViewer')
+            let slider = container.querySelector('.viewer-slider')
+            let viewport = container.querySelector('.viewport')
+
+            //加入畫布
+            let viewer = document.createElement('canvas')
+            viewer.style.width = "100%"
+            viewer.style.height = "100%"
+
+            viewport.append(viewer)
 
             window.addEventListener('resize', () => {
-                let w = window.getComputedStyle(viewer).width
-                viewer.style.height = w
-
-                let h = window.getComputedStyle(centrePanel).height
-                divider.style.height = `calc(${h} * 0.9)`
-
+                container.style.height = container.clientWidth + 'px'
             })
+
             window.dispatchEvent(event)
 
             // 文件上傳節點
             let dcmMultiUploadInput = document.getElementById('importDicomBtn')
             let rawUploadInput = document.getElementById('importRawBtn')
             let nrrdUploadInput = document.getElementById('importNRRDBtn')
+            let imgUploadInput = document.getElementById('importIMGBtn')
 
-            // 執行節點
+            // 功能節點
             let newInstanceBtn = document.getElementById('newInstanceBtn')
             let img2rawBtn = document.getElementById('img2rawBtn')
-
-            let slider = document.getElementById('imgSlider')
 
             // 畫布資訊
             let ctx = viewer.getContext('2d')
@@ -741,7 +915,7 @@
             let drawImage = (index) => {
                 let dims = imgInfo.dims
                 let stored = imgInfo.bitsStored
-                let scalar = 2 ** (8 - stored)
+                let scalar = 255 / (2 ** stored - 1)
                 let sIndex = size2 * index
                 plt.data.fill(255)
 
@@ -755,6 +929,13 @@
             slider.addEventListener('input', () => {
                 drawImage(slider.value)
             })
+
+            viewport.addEventListener('wheel', (e) => {
+                let distance = parseInt(slider.step) * e.deltaY / 200
+                slider.value = parseInt(slider.value) + distance
+
+                slider.dispatchEvent(inputEvt)
+            }, checkPassiveSupported(true))
 
             let loadFile = (evt, type) => {
                 let files = evt.target.files
@@ -772,17 +953,19 @@
                     viewer.height = info.dims[1]
                     size2 = info.dims[0] * info.dims[1]
                     plt = ctx.getImageData(0, 0, info.dims[0], info.dims[1])
-                    slider.disabled = false
-                    slider.min = 0;
-                    slider.max = info.dims[2] - 1
-                    slider.step = 1
 
                     imgInfomation.date.value = info.date
+                    imgInfomation.patient.value = info.patient
+                    imgInfomation.orientation.value = info.orientation
                     imgInfomation.imgSize.value = `${info.dims[0]}:${info.dims[1]}:${info.dims[2]}`
                     imgInfomation.spacing.value = `${Math.round(info.spacing[0] * 100) / 100}:${Math.round(info.spacing[1] * 100) / 100}:${Math.round(info.spacing[2] * 100) / 100}`
                     imgInfomation.bit.value = info.bitsStored
                     imgInfomation.position.value = info.position
 
+                    slider.disabled = false
+                    slider.min = 0;
+                    slider.max = info.dims[2] - 1
+                    slider.step = 1
                     slider.value = Math.round(info.dims[2] / 2)
                     slider.dispatchEvent(inputEvt)
                 })
@@ -800,6 +983,9 @@
                         break
                     case '.nrrd':
                         loadFile(evt, uploader.type.NRRD)
+                        break
+                    case '.jpg,.jpeg,.png':
+                        loadFile(evt, uploader.type.IMG)
                         break
                 }
 
@@ -828,6 +1014,12 @@
                 filesloader.click()
             })
 
+            imgUploadInput.addEventListener('click', (evt) => {
+                filesloader.accept = '.jpg,.jpeg,.png'
+                filesloader.multiple = "multiple"
+                filesloader.click()
+            })
+
             let tab = null
             let url = null
             let link =
@@ -849,7 +1041,7 @@
                     //console.log(blob)
                     let strInfo = JSON.stringify(imgInfo)
 
-                    tab = window.open('modifier.html', 'slicer')
+                    tab = window.open(window.location.href + 'modifier', 'slicer')
 
                     tab.localStorage.setItem('blob', url)
                     tab.localStorage.setItem('info', strInfo)
@@ -859,7 +1051,7 @@
             let fileDownloader = new FileDownloader()
 
             img2rawBtn.addEventListener('click', () => {
-                if(imgData == null || imgInfo == null){
+                if (imgData == null || imgInfo == null) {
                     return
                 }
 
@@ -867,12 +1059,10 @@
                 let height = imgInfo.dims[1]
                 let depth = imgInfo.dims[2]
                 let bits = imgInfo.bitsAllocated
-                fileDownloader.rawProcess('model_'+width+'_'+height+'_'+depth,imgData, bits)
+                fileDownloader.rawProcess('model_' + width + '_' + height + '_' + depth, imgData, bits)
             })
 
 
         }
     </script>
 </body>
-
-</html>
