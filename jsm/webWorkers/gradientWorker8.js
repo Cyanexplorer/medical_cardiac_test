@@ -1,3 +1,4 @@
+
 class TypedArray3DContainer {
 
     constructor(data, width = 0, height = 0, depth = 0, pSize = 0) {
@@ -160,6 +161,9 @@ class TypedArray3DContainer {
     }
 
 }
+
+//import {TypedArray3DContainer} from "../model/ExtendedArray.js"
+
 let kmultiply = (x, y, z, kOrder, kernel, template) => {
 
     let p = 0;

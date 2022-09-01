@@ -1,5 +1,5 @@
-import { ImageProcess } from "../controller/ImageProcessTools.js"
-import {Segment, ImageData, ImageData8} from "./Segment.js"
+import { ImageProcess } from "../controller/ImageProcessingTools.js"
+import { ImageData8, ImageData} from "./Segment.js"
 
 class colorSetting {
     constructor() {
@@ -40,6 +40,7 @@ class colorSetting {
                 this.rgba[0][i] = (1.0 - frac) * rgb1.R + frac * rgb2.R;
                 this.rgba[1][i] = (1.0 - frac) * rgb1.G + frac * rgb2.G;
                 this.rgba[2][i] = (1.0 - frac) * rgb1.B + frac * rgb2.B;
+                this.rgba[3][i] = this.path[i] / 255
             }
         }
 
@@ -64,46 +65,34 @@ class colorSetting {
     }
 }
 
-
 class State {
     constructor() {
 
-        this.images = {
-            origin: null,
-            base: null
-        }
+        this._volume = new ImageData()
+        this._backup = this._volume.clone()
 
-        this.imgRenderType = -1
         this.order = -1
         this.segments = []
         this.fIndex = -1// 當前被選擇的樣板
-
-        this.colorSetting = new colorSetting()
+  
         this.transferData = null
 
-        this.imgRenderType = 0;
-        this.volumeType = 0
+        this.volumeProcessType = 100;
+        this.volumeRenderType = 0
         this.isInverted = false
         this.info = null
 
+        this.colorSetting = new colorSetting()
+        
         let imageProcess = new ImageProcess()
 
         // 設置CT影像內容並生成其相關資訊，例如取樣縮圖和色彩分布圖
         this.generate = (onload) => {
-            imageProcess.postprocess(this.images.base, this.info.bitsStored, this.imgRenderType, this.isInverted, () => {
-                this.images.base.generateThumbnail()
-                onload()
+            imageProcess.postprocess(this._volume, this.info.bitsStored, this.volumeProcessType, this.isInverted, () => {
+                this._volume.generateThumbnail()
+                if(onload instanceof Function)
+                    onload()
             })
-
-        }
-
-        // 從備分中重設CT影像內容
-        this.baseDataReset = () => {
-            if (this.images.base === null || this.images.origin === null || this.images.base.data.length !== this.images.origin.data.length) {
-                console.error('Internal data missing!');
-            }
-
-            pushData(this.images.origin.data, this.images.base.data);
         }
 
         // 複製當前的樣板狀態存檔，並將結果回傳
@@ -132,6 +121,15 @@ class State {
             })
 
         }
+
+        this.volumeReset = () => {
+            if (this._volume == null) {
+                console.error('Internal data missing!');
+            }
+
+            pushData(this._backup.data, this._volume.data);
+        }
+
     }
 
     // 取得當前需要啟用的樣板索引值
@@ -158,20 +156,15 @@ class State {
     }
 
     // 設置CT影像的內容，同時製作備分
-    set baseSegment(imgData) {
-        this.images.origin = imgData;
-        this.images.base = imgData.clone();
-        this.transferData = new ImageData8('transfer', this.images.base.dims)
+    set volume(imgData) {
+        this._volume = imgData
+        this._backup = imgData.clone()
+        this.transferData = new ImageData8('transfer', this._volume.dims)
     }
 
-    // 將備分當作原始影像回傳
-    get originSegment() {
-        return this.images.origin;
-    };
-
     // 取得CT影像的內容
-    get baseSegment() {
-        return this.images.base;
+    get volume() {
+        return this._volume
     };
 
 

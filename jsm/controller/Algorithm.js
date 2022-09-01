@@ -53,7 +53,12 @@ let trilinearScale = (inputData, outputData, inputDims, outputDims) => {
 }
 
 class Kernel {
-    constructor() {
+    constructor(dims) {
+        let backData = new BinaryArray(dims[0] * dims[1] * dims[2])
+
+        // 使用 3D container 封裝資料，以便進行三維的座標檢索
+        let template = new BinaryArray3DContainer(backData, dims[0], dims[1], dims[2], 0)
+
         let buildKernel_e_d = (kernelSize, r) => {
             let kernel = new Array(kernelSize * kernelSize * kernelSize).fill(0);
             let limit_i, limit_j;
@@ -233,14 +238,13 @@ class Kernel {
         let convolution_blur = (segment, kernel, kDims) => {
 
             let binData = segment.data
-            let backData = segment.backData
+            //let backData = segment.backData
             let dims = segment.dims
 
             // 將kernel計算時的座標索引，由三維攤平成一維陣列
             let kOrder = kernelOrder(kDims)
 
-            // 使用 3D container 封裝資料，以便進行三維的座標檢索
-            let template = new BinaryArray3DContainer(backData, dims[0], dims[1], dims[2], 0)
+            //let template = new BinaryArray3DContainer(backData, dims[0], dims[1], dims[2], 0)
 
             // 將前景資料複製至背景(暫存)資料陣列中
             backData.copyfrom(binData)
@@ -295,7 +299,7 @@ class Kernel {
 
             return new Promise((resolve) => {
                 let binData = segment.data
-                let backData = segment.backData
+                //let backData = segment.backData
                 let dims = segment.dims
                 let kOrder = kernelOrder(kDims)
 
@@ -337,7 +341,7 @@ class Kernel {
                 //padding(dims, binData, paddingSize)
 
                 let binData = segment.data
-                let backData = segment.backData
+                //let backData = segment.backData
                 let dims = segment.dims
                 let kOrder = kernelOrder(kDims)
 
@@ -356,7 +360,8 @@ class Kernel {
                     let worker = new Worker(url, { type: 'module' })
 
                     worker.onmessage = (e) => {
-                        segment.switchData()
+                        pushData(backData.data, backData.data)
+                        //segment.switchData()
                         resolve()
                     }
 
@@ -387,7 +392,7 @@ class Kernel {
             //padding(dims, binData, paddingSize)
             let data = imageData.data
             let dims = imageData.dims
-            let backData = imageData.backData
+            //let backData = imageData.backData
 
             pushData(data, backData)
 
@@ -426,53 +431,6 @@ class Kernel {
                 }
             }
         }
-
-
-        let trilinearScale = (inputData, outputData, inputDims, outputDims) => {
-            let template = new TypedArray3DContainer(inputData, inputDims[0], inputDims[1], inputDims[2], 0)
-
-            let pos = 0
-            let ratio = [inputDims[0] / outputDims[0], inputDims[1] / outputDims[1], inputDims[2] / outputDims[2]]
-
-            for (let i = 0; i < outputDims[2]; i++) {
-                let posz = i * ratio[2]
-                let zmin = Math.floor(posz)
-                let zmax = zmin + 1
-                let fz = posz - zmin
-                let ifz = 1 - fz
-
-                for (let j = 0; j < outputDims[1]; j++) {
-                    let posy = j * ratio[1]
-                    let ymin = Math.floor(posy)
-                    let ymax = ymin + 1
-                    let fy = posy - ymin
-                    let ify = 1 - fy
-
-                    for (let k = 0; k < outputDims[0]; k++) {
-                        let posx = k * ratio[0]
-                        let xmin = Math.floor(posx)
-                        let xmax = xmin + 1
-                        let fx = posx - xmin
-                        let ifx = 1 - fx
-
-                        let cdf0 = template.getValue3D(xmin, ymin, zmin)
-                        let cdf1 = template.getValue3D(xmax, ymin, zmin)
-                        let cdf2 = template.getValue3D(xmin, ymax, zmin)
-                        let cdf3 = template.getValue3D(xmax, ymax, zmin)
-                        let cdf4 = template.getValue3D(xmin, ymin, zmax)
-                        let cdf5 = template.getValue3D(xmax, ymin, zmax)
-                        let cdf6 = template.getValue3D(xmin, ymax, zmax)
-                        let cdf7 = template.getValue3D(xmax, ymax, zmax)
-
-                        let out = ((ifx * cdf0 + fx * cdf1) * ify + (ifx * cdf2 + fx * cdf3) * fy) * ifz
-                            + ((ifx * cdf4 + fx * cdf5) * ify + (ifx * cdf6 + fx * cdf7) * fy) * fz
-
-                        outputData[pos++] = out 
-                    }
-                }
-            }
-        }
-
 
         let sobelAsync2 = (imageData, kernels, kDims, tfData) => {
 
@@ -513,7 +471,7 @@ class Kernel {
                                 let tfdims = tfData.dims
 
                                 trilinearScale(tftb, result, dims, tfdims)
-console.log(result)
+                                console.log(result)
                                 resolve()
                             }
                         }
@@ -632,163 +590,50 @@ class Logic {
 }
 
 const dir = [
+    //0
     { x: 0, y: 1, z: 0 },
     { x: 1, y: 0, z: 0 },
     { x: 0, y: -1, z: 0 },
     { x: -1, y: 0, z: 0 },
+    { x: 1, y: 1, z: 0 },
+    { x: 1, y: -1, z: 0 },
+    { x: -1, y: -1, z: 0 },
+    { x: -1, y: 1, z: 0 },
+
+    //1
+    { x: 0, y: 1, z: 1 },
+    { x: 1, y: 0, z: 1 },
+    { x: 0, y: -1, z: 1 },
+    { x: -1, y: 0, z: 1 },
+    { x: 1, y: 1, z: 1 },
+    { x: 1, y: -1, z: 1 },
+    { x: -1, y: -1, z: 1 },
+    { x: -1, y: 1, z: 1 },
+
+    //-1
+    { x: 0, y: 1, z: -1 },
+    { x: 1, y: 0, z: -1 },
+    { x: 0, y: -1, z: -1 },
+    { x: -1, y: 0, z: -1 },
+    { x: 1, y: 1, z: -1 },
+    { x: 1, y: -1, z: -1 },
+    { x: -1, y: -1, z: -1 },
+    { x: -1, y: 1, z: -1 },
+
     { x: 0, y: 0, z: -1 },
     { x: 0, y: 0, z: 1 }
 ]
 
-class EdgeDetector2D {
-    constructor(dims) {
-        this.process = (source, result) => {
-            let src = cv.matFromArray(dims[0], dims[1], cv.CV_32FC1, source)
-            let dst = new cv.Mat()
-            cv.Canny(src, dst, 0.5, 0.6, 3, false)
-
-            console.log(dst)
-        }
-    }
-}
-
-//Waitin for Replaced by Active Contour Edge(ACM)
-class Balloon {
-    constructor(dims) {
-
-        //let segBuffer = bufferLoader(axisUV, dims, segData, layerIndex)
-
-        /**
-         * 
-         * Count size is the predictable maximun length of region growing, and there should be 3 elements for an iterator.
-         * Stack will occupy count * 3 blocks.
-         * 
-         * */
-
-        let count = dims[0] * dims[1] * dims[2]
-        let visit = new Uint8Array(count)
-        let stack = new Uint32Array((count + 16) * 3)
-
-        let kernel = new Array(Math.pow(18, 3)).fill(1)
-        let calculate = (x, y, z) => {
-
-            let kpos = 0
-            let i, j, k
-
-            x -= paddingSize
-            y -= paddingSize
-            z -= paddingSize
-
-            let sum = 0
-
-            for (i = 0; i < kDims[2]; i++) {
-                for (j = 0; j < kDims[1]; j++) {
-                    for (k = 0; k < kDims[0]; k++) {
-                        sum += dataBuffer[getPosition(x + k, y + j, z + i)] * kernel[kpos++]
-                    }
-                }
-            }
-
-            if (sum > limit) {
-                return true
-            }
-
-            return false
-        }
-
-        let threshold = (dataBuffer, dims, kernel, kDims, paddingSize, iso) => {
-
-            let paddingBuffer = padding(dims, dataBuffer, paddingSize)
-
-
-
-            preset(dims, paddingSize)
-
-            let kCenter = kernel[parseInt((kernel.length + 1) / 2)]
-            let i, j, k, pos
-
-            pos = 0
-
-            for (i = 0; i < dims[2]; i++) {
-                for (j = 0; j < dims[1]; j++) {
-                    for (k = 0; k < dims[0]; k++) {
-                        if (paddingBuffer[getPosWithPadding(i, j, k)] == kCenter) {
-                            calculate(k, j, i)
-                        }
-                        pos++
-                    }
-                }
-            }
-        }
-
-        this.process = (x, y, layerIndex, source, bias, margin, mask, result) => {
-            visit.fill(0)
-
-            let index = layerIndex * dims[1] * dims[0] + y * dims[0] + x
-
-            visit[index] = 1
-            result[index] = 1
-
-            //x, y, z, direction, remain life
-            stack.set([x, y, layerIndex], 0)
-
-            let target = source[index]
-            let upperBound = target + bias
-            let lowerBound = target - bias
-
-            let cx, cy, cz, life
-            let stackIndex = 0
-            let stackSize = 1
-
-            //console.log(dims)
-            while (stackIndex < stackSize) {
-
-                cx = stack[stackIndex * 3]
-                cy = stack[stackIndex * 3 + 1]
-                cz = stack[stackIndex * 3 + 2]
-
-                stackIndex++
-
-                dir.forEach((d) => {
-                    let ncx = cx + d.x
-                    let ncy = cy + d.y
-                    let ncz = cz + d.z
-
-                    //ncx  < 0 || ncy < 0 || ncz < 0
-                    //ncx >= dims[0] || ncy >= dims[1] || ncz >= dims[2]
-                    //檢查是否出界
-                    if (ncx < 0 || ncy < 0 || ncz < 0 || ncx >= dims[0] || ncy >= dims[1] || ncz >= dims[2]) {
-                        return
-                    }
-
-                    //排除重複搜尋
-                    let nextIndex = ncz * dims[1] * dims[0] + ncy * dims[0] + ncx
-                    if (visit[nextIndex] == 1) {
-                        return
-                    }
-
-                    visit[nextIndex] = 1
-
-                    //閥值檢測
-                    if (source[nextIndex] > upperBound || source[nextIndex] < lowerBound) {
-                        return
-                    }
-
-                    //張力檢測
-
-
-
-                    result[nextIndex] = 1
-
-
-                    stack.set([ncx, ncy, ncz], stackSize * 3)
-                    stackSize++
-                })
-            }
-
-        }
-    }
-}
+const dir2D = [
+    { x: 0, y: 1, z: 0 },
+    { x: 1, y: 0, z: 0 },
+    { x: 0, y: -1, z: 0 },
+    { x: -1, y: 0, z: 0 },
+    { x: 1, y: 1, z: 0 },
+    { x: 1, y: -1, z: 0 },
+    { x: -1, y: -1, z: 0 },
+    { x: -1, y: 1, z: 0 }
+]
 
 class Growing {
     constructor(dims) {
@@ -806,14 +651,101 @@ class Growing {
         //let count3d = dims[0] * dims[1] * dims[2];
 
         //let visit = new BinaryArray(count3d);
+        let visit = new BinaryArray(dims[0] * dims[1] * dims[2])
         let stack_x = [new Uint16Array(count), new Uint16Array(count)];
         let stack_y = [new Uint16Array(count), new Uint16Array(count)];
         let stack_z = [new Uint16Array(count), new Uint16Array(count)];
 
-        //console.log(visit, visit.length)
+        const DISCARD = -1
+        const NONSELECT = 0
+        const SELECTED = 1
+
+        let search = (coordinates, ptn, onload, directions) => {
+            //let visit = ptn.backData
+            let bin = ptn.data
+            visit.clear()
+
+            let dims01 = dims[1] * dims[0]
+            let index = coordinates.z * dims01 + coordinates.y * dims[0] + coordinates.x;
+
+            visit.setBit(index);
+            bin.setBit(index);
+
+            //x, y, z, direction, remain life
+            stack_x[0].set([coordinates.x], 0);
+            stack_y[0].set([coordinates.y], 0);
+            stack_z[0].set([coordinates.z], 0);
+
+            let slot = 0;
+            let slot_size = 1;
+
+            let searchResult = {
+                '-1': () => {
+                    return false
+                },
+                0: (index) => {
+                    visit.setBit(index);
+                    return false
+                },
+                1: (index) => {
+                    visit.setBit(index);
+                    return true
+                }
+            }
+
+            while (true) {
+                let slot_n = (slot + 1) % 2;
+                let slot_size_n = 0;
+
+                for (let i = 0; i < slot_size; i++) {
+                    let cx = stack_x[slot][i];
+                    let cy = stack_y[slot][i];
+                    let cz = stack_z[slot][i];
+
+                    directions.forEach((d) => {
+                        let ncx = cx + d.x;
+                        let ncy = cy + d.y;
+                        let ncz = cz + d.z;
+
+                        //ncx  < 0 || ncy < 0 || ncz < 0
+                        //ncx >= dims[0] || ncy >= dims[1] || ncz >= dims[2]
+                        //檢查是否出界
+                        if (ncx < 0 || ncy < 0 || ncz < 0 || ncx >= dims[0] || ncy >= dims[1] || ncz >= dims[2]) {
+                            return;
+                        }
+
+                        //排除重複搜尋
+                        let nextIndex = ncz * dims01 + ncy * dims[0] + ncx;
+                        if (visit.getBit(nextIndex) === 1) {
+                            return;
+                        }
+
+                        let result = onload(bin, nextIndex)
+                        if (searchResult[result] == null || !searchResult[result](nextIndex)) {
+                            return
+                        }
+
+                        stack_x[slot_n].set([ncx], slot_size_n);
+                        stack_y[slot_n].set([ncy], slot_size_n);
+                        stack_z[slot_n].set([ncz], slot_size_n);
+                        slot_size_n++;
+                    });
+                }
+
+                //未發現新區域
+                if (slot_size_n === 0) {
+                    break;
+                }
+
+                slot = slot_n;
+                slot_size = slot_size_n;
+            }
+
+
+        }
 
         this.edgeDetector = (x, y, layerIndex, source, bias, margin, mask, result) => {
-            let visit = result.backData
+            //let visit = result.backData
             visit.clear()
             let index = layerIndex * dims[1] * dims[0] + y * dims[0] + x
             visit.setValue(1, index)
@@ -895,303 +827,239 @@ class Growing {
 
         }
 
-        this.regionGrowing = (x, y, layerIndex, source, bias, margin, mask, result) => {
-            let visit = result.backData
-            let arr = result.data
-            visit.clear()
+        this.regionGrowing = (x, y, layerIndex, source, bias, pattern) => {
 
-            let index = layerIndex * dims[1] * dims[0] + y * dims[0] + x;
+            let coordinates = {
+                x: x,
+                y: y,
+                z: layerIndex
+            }
 
-            visit.setBit(index);
-            arr.setBit(index);
-
-            //x, y, z, direction, remain life
-            stack_x[0].set([x], 0);
-            stack_y[0].set([y], 0);
-            stack_z[0].set([layerIndex], 0);
-
+            let index = coordinates.z * dims[1] * dims[0] + coordinates.y * dims[0] + coordinates.x;
             let target = source[index];
             let upperBound = target + bias;
             let lowerBound = target - bias;
 
-            let cx, cy, cz, life;
-
-            let slot = 0;
-            let slot_size = 1;
-            //console.log(dims)
-            while (true) {
-                let slot_n = (slot + 1) % 2;
-                let slot_size_n = 0;
-
-                for (let i = 0; i < slot_size; i++) {
-                    cx = stack_x[slot][i];
-                    cy = stack_y[slot][i];
-                    cz = stack_z[slot][i];
-
-                    dir.forEach((d) => {
-                        let ncx = cx + d.x;
-                        let ncy = cy + d.y;
-                        let ncz = cz + d.z;
-
-                        //ncx  < 0 || ncy < 0 || ncz < 0
-                        //ncx >= dims[0] || ncy >= dims[1] || ncz >= dims[2]
-                        //檢查是否出界
-                        if (ncx < 0 || ncy < 0 || ncz < 0 || ncx >= dims[0] || ncy >= dims[1] || ncz >= dims[2]) {
-                            return;
-                        }
-
-                        //排除重複搜尋
-                        let nextIndex = ncz * dims[1] * dims[0] + ncy * dims[0] + ncx;
-                        if (visit.getBit(nextIndex) === 1) {
-                            return;
-                        }
-
-                        visit.setBit(nextIndex);
-
-                        //閥值檢測
-                        if (source[nextIndex] > upperBound || source[nextIndex] < lowerBound) {
-                            return;
-                        }
-
-                        arr.setBit(nextIndex);
-
-                        stack_x[slot_n].set([ncx], slot_size_n);
-                        stack_y[slot_n].set([ncy], slot_size_n);
-                        stack_z[slot_n].set([ncz], slot_size_n);
-                        slot_size_n++;
-                    });
+            let onload = (bin, index) => {
+                if (source[index] >= upperBound || source[index] < lowerBound) {
+                    return NONSELECT;
                 }
 
-                //未發現新區域
-                if (slot_size_n === 0) {
-                    break;
-                }
+                bin.setBit(index);
 
-                slot = slot_n;
-                slot_size = slot_size_n;
+                return SELECTED
             }
+
+            search(coordinates, pattern, onload, dir)
 
         };
 
-        this.holeFilling = (x, y, layerIndex, source, pattern, bias, margin, mask, result) => {
-            let visit = result.backData
-            let arr = result.data
-            visit.clear()
-            //stack.fill(0)
+        this.regionExclusive = (x, y, layerIndex, source, bias, pattern) => {
+            let coordinates = {
+                x: x,
+                y: y,
+                z: layerIndex
+            }
 
-            let index = layerIndex * dims[1] * dims[0] + y * dims[0] + x;
-            visit.setBit(index);
-            arr.setBit(index);
-
-            //x, y, z, direction, remain life
-            stack_x[0].set([x], 0);
-            stack_y[0].set([y], 0);
-            stack_z[0].set([layerIndex], 0);
-
+            let index = coordinates.z * dims[1] * dims[0] + coordinates.y * dims[0] + coordinates.x;
             let target = source[index];
             let upperBound = target + bias;
             let lowerBound = target - bias;
 
-            let cx, cy, cz, life;
-
-            let slot = 0;
-            let slot_size = 1;
-            //console.log(dims)
-            while (true) {
-                let slot_n = (slot + 1) % 2;
-                let slot_size_n = 0;
-
-                for (let i = 0; i < slot_size; i++) {
-                    cx = stack_x[slot][i];
-                    cy = stack_y[slot][i];
-                    cz = stack_z[slot][i];
-
-                    dir.forEach((d) => {
-                        let ncx = cx + d.x;
-                        let ncy = cy + d.y;
-                        let ncz = cz + d.z;
-
-                        //ncx  < 0 || ncy < 0 || ncz < 0
-                        //ncx >= dims[0] || ncy >= dims[1] || ncz >= dims[2]
-                        //檢查是否出界
-                        if (ncx < 0 || ncy < 0 || ncz < 0 || ncx >= dims[0] || ncy >= dims[1] || ncz >= dims[2]) {
-                            return;
-                        }
-
-                        //排除重複搜尋
-                        let nextIndex = ncz * dims[1] * dims[0] + ncy * dims[0] + ncx;
-                        if (visit.getBit(nextIndex) === 1) {
-                            return;
-                        }
-
-                        visit.setBit(nextIndex);
-
-                        //閥值檢測
-                        if (source[nextIndex] > upperBound || source[nextIndex] < lowerBound) {
-                            return;
-                        }
-
-                        arr.setBit(nextIndex);
-
-                        stack_x[slot_n].set([ncx], slot_size_n);
-                        stack_y[slot_n].set([ncy], slot_size_n);
-                        stack_z[slot_n].set([ncz], slot_size_n);
-                        slot_size_n++;
-                    });
+            let onload = (bin, index) => {
+                if (source[index] >= upperBound || source[index] < lowerBound) {
+                    return NONSELECT;
                 }
 
-                //未發現新區域
-                if (slot_size_n === 0) {
-                    break;
+                if (bin.getBit[index] == 1) {
+                    return NONSELECT
                 }
 
-                slot = slot_n;
-                slot_size = slot_size_n;
+                bin.setBit(index);
+                return SELECTED
             }
 
+            search(coordinates, pattern, onload, dir)
+        }
+
+        this.regionFill = (x, y, layerIndex, pattern) => {
+            let coordinates = {
+                x: x,
+                y: y,
+                z: layerIndex
+            }
+
+            let onload = (bin, index) => {
+                if (bin.getBit(index) == 1) {
+                    return NONSELECT
+                }
+
+                bin.setBit(index)
+                return SELECTED
+            }
+
+            search(coordinates, pattern, onload, dir)
         }
 
         this.regionPreserve = (x, y, layerIndex, pattern) => {
-            let result = pattern.backData
-            let visit = pattern.data
-
-            result.fill(0)
-
-            let index = layerIndex * dims[1] * dims[0] + y * dims[0] + x;
-            result.setBit(index);
-            visit.clearBit(index)
-
-            //x, y, z, direction, remain life
-            stack_x[0].set([x], 0);
-            stack_y[0].set([y], 0);
-            stack_z[0].set([layerIndex], 0);
-
-            let cx, cy, cz, life;
-
-            let slot = 0;
-            let slot_size = 1;
-
-            while (true) {
-                let slot_n = (slot + 1) % 2;
-                let slot_size_n = 0;
-
-                for (let i = 0; i < slot_size; i++) {
-                    cx = stack_x[slot][i];
-                    cy = stack_y[slot][i];
-                    cz = stack_z[slot][i];
-
-                    dir.forEach((d) => {
-                        let ncx = cx + d.x;
-                        let ncy = cy + d.y;
-                        let ncz = cz + d.z;
-
-                        //ncx  < 0 || ncy < 0 || ncz < 0
-                        //ncx >= dims[0] || ncy >= dims[1] || ncz >= dims[2]
-                        //檢查是否出界
-                        if (ncx < 0 || ncy < 0 || ncz < 0 || ncx >= dims[0] || ncy >= dims[1] || ncz >= dims[2]) {
-                            return;
-                        }
-
-                        //排除重複搜尋
-                        let nextIndex = ncz * dims[1] * dims[0] + ncy * dims[0] + ncx;
-                        if (visit.getBit(nextIndex) == 0) {
-                            return;
-                        }
-
-                        visit.clearBit(nextIndex);
-
-                        //閥值檢測
-                        if (result.getBit(nextIndex) == 1) {
-                            return;
-                        }
-
-                        result.setBit(nextIndex);
-
-                        stack_x[slot_n].set([ncx], slot_size_n);
-                        stack_y[slot_n].set([ncy], slot_size_n);
-                        stack_z[slot_n].set([ncz], slot_size_n);
-                        slot_size_n++;
-                    });
-                }
-
-                //未發現新區域
-                if (slot_size_n == 0) {
-                    break;
-                }
-
-                slot = slot_n;
-                slot_size = slot_size_n;
+            let coordinates = {
+                x: x,
+                y: y,
+                z: layerIndex
             }
 
-            pattern.switchData()
+            let onload = (bin, index) => {
+                if (bin.getBit(index) == 0) {
+                    return DISCARD
+                }
+
+                return SELECTED
+            }
+
+            search(coordinates, pattern, onload, dir)
+
+            pushData(visit.data, pattern.data.data)
+            //pattern.switchData()
         }
 
-        this.regionRemove = (x, y, z, pattern) => {
-            let result = pattern.data
-
-            let index = z * dims[1] * dims[0] + y * dims[0] + x;
-
-            if(result.getBit(index) == 0){
-                return
+        this.regionRemove = (x, y, layerIndex, pattern) => {
+            let coordinates = {
+                x: x,
+                y: y,
+                z: layerIndex
             }
 
-            result.clearBit(index);
-
-            stack_x[0].set([x], 0);
-            stack_y[0].set([y], 0);
-            stack_z[0].set([z], 0);
-
-            let cx, cy, cz;
-
-            let slot = 0;
-            let slot_size = 1;
-
-            while (true) {
-                let slot_n = (slot + 1) % 2;
-                let slot_size_n = 0;
-
-                for (let i = 0; i < slot_size; i++) {
-                    cx = stack_x[slot][i];
-                    cy = stack_y[slot][i];
-                    cz = stack_z[slot][i];
-
-                    dir.forEach((d) => {
-                        let ncx = cx + d.x;
-                        let ncy = cy + d.y;
-                        let ncz = cz + d.z;
-
-                        //ncx  < 0 || ncy < 0 || ncz < 0
-                        //ncx >= dims[0] || ncy >= dims[1] || ncz >= dims[2]
-                        //檢查是否出界
-                        if (ncx < 0 || ncy < 0 || ncz < 0 || ncx >= dims[0] || ncy >= dims[1] || ncz >= dims[2]) {
-                            return;
-                        }
-
-                        //排除重複搜尋
-                        let nextIndex = ncz * dims[1] * dims[0] + ncy * dims[0] + ncx;
-
-                        //閥值檢測
-                        if (result.getBit(nextIndex) == 0) {
-                            return;
-                        }
-
-                        result.clearBit(nextIndex);
-
-                        stack_x[slot_n].set([ncx], slot_size_n);
-                        stack_y[slot_n].set([ncy], slot_size_n);
-                        stack_z[slot_n].set([ncz], slot_size_n);
-                        slot_size_n++;
-                    });
+            let onload = (bin, index) => {
+                if (bin.getBit(index) == 0) {
+                    return NONSELECT
                 }
 
-                //未發現新區域
-                if (slot_size_n == 0) {
-                    break;
-                }
-
-                slot = slot_n;
-                slot_size = slot_size_n;
+                bin.clearBit(index);
+                return SELECTED
             }
+
+            search(coordinates, pattern, onload, dir)
+        }
+
+        this.regionGrowing2D = (x, y, layerIndex, source, bias, pattern) => {
+            let coordinates = {
+                x: x,
+                y: y,
+                z: layerIndex
+            }
+
+            let index = coordinates.z * dims[1] * dims[0] + coordinates.y * dims[0] + coordinates.x;
+            let target = source[index];
+            let upperBound = target + bias;
+            let lowerBound = target - bias;
+
+            let onload = (bin, index) => {
+                if (source[index] >= upperBound || source[index] < lowerBound) {
+                    return NONSELECT;
+                }
+
+                bin.setBit(index);
+
+                return SELECTED
+            }
+
+            search(coordinates, pattern, onload, dir2D)
+        }
+
+        this.regionPreserve2D = (x, y, layerIndex, pattern) => {
+            let coordinates = {
+                x: x,
+                y: y,
+                z: layerIndex
+            }
+
+            let onload = (bin, index) => {
+                if (bin.getBit(index) == 0) {
+                    return NONSELECT
+                }
+
+                return SELECTED
+            }
+
+            search(coordinates, pattern, onload, dir2D)
+
+            let dims = pattern.dims
+            let size2 = dims[0] * dims[1]
+            for (let i = size2 * layerIndex; i < size2 * (layerIndex + 1); i++)
+                pattern.data.setBit(i, pattern.backData.getBit(i))
+
+            //pattern.switchData()
+        }
+
+        this.regionRemove2D = (x, y, layerIndex, pattern) => {
+            let coordinates = {
+                x: x,
+                y: y,
+                z: layerIndex
+            }
+
+            let onload = (bin, index) => {
+                if (bin.getBit(index) == 0) {
+                    return NONSELECT
+                }
+
+                bin.clearBit(index);
+                return SELECTED
+            }
+
+            search(coordinates, pattern, onload, dir2D)
+
+            let dims = pattern.dims
+            let size2 = dims[0] * dims[1]
+            for (let i = size2 * layerIndex; i < size2 * (layerIndex + 1); i++)
+                pattern.data.setBit(i, pattern.backData.getBit(i))
+        }
+
+        this.regionExclusive = (x, y, layerIndex, source, bias, pattern) => {
+            let coordinates = {
+                x: x,
+                y: y,
+                z: layerIndex
+            }
+
+            let index = coordinates.z * dims[1] * dims[0] + coordinates.y * dims[0] + coordinates.x;
+            let target = source[index];
+            let upperBound = target + bias;
+            let lowerBound = target - bias;
+
+            let onload = (bin, index) => {
+                if (source[index] >= upperBound || source[index] < lowerBound) {
+                    return NONSELECT;
+                }
+
+                if (bin.getBit[index] == 1) {
+                    return NONSELECT
+                }
+
+                bin.setBit(index);
+                return SELECTED
+            }
+
+            search(coordinates, pattern, onload, dir2D)
+        }
+
+        this.regionFill = (x, y, layerIndex, pattern) => {
+            let coordinates = {
+                x: x,
+                y: y,
+                z: layerIndex
+            }
+
+            let onload = (bin, index) => {
+                if (bin.getBit(index) == 1) {
+                    return NONSELECT
+                }
+
+                bin.setBit(index)
+                return SELECTED
+            }
+
+            search(coordinates, pattern, onload, dir2D)
         }
     }
 
@@ -1334,13 +1202,11 @@ class Gaussian {
 }
 
 class SizeBased {
-    constructor(imageData, tfData, rgba) {
+    constructor(dims) {
 
-        this.dims = imageData.thumbnailSize
-        this.alpha = imageData.thumbnail
-
-        let tftb = tfData.thumbnail
-        tftb.fill(0)
+        this.dims = dims
+        this.alpha = null
+        this.rgba = null
 
         let arraySize = this.dims[2] * this.dims[1] * this.dims[0]
         this.laplacianValue = [new Float32Array(arraySize), new Float32Array(arraySize), new Float32Array(arraySize)]
@@ -1351,25 +1217,26 @@ class SizeBased {
         let sizeMax = 0.0;
         let sizeMin = DBL_MAX;
 
-        this.process = (onprogress, onload) => {
+        this.process = (volume, rgba, onprogress, onload) => {
+            this.rgba = rgba
+
+            volume.generateThumbnail()
+            this.alpha = volume.thumbnail
 
             for (let i = 0; i < this.alpha.length; i++) {
                 this.volumeData[0][i] = this.alpha[i]
             }
 
             let gaussian1 = new Gaussian(1)
-            gaussian1.diff(this, (volume, progress) => {
+            gaussian1.diff(this, (result, progress) => {
                 if (onprogress instanceof Function) {
-                    onprogress(volume, progress)
+                    onprogress(result, progress)
                 }
 
                 if (progress == 1) {
                     this.interp()
 
-                    let result = tfData.data
-                    let tfdims = tfData.dims
-
-                    trilinearScale(tftb, result, this.dims, tfdims)
+                    trilinearScale(volume.thumbnail, volume.data, volume.thumbnailSize, volume.dims)
 
                     if (onload instanceof Function) {
 
@@ -1464,7 +1331,7 @@ class SizeBased {
         this.dotInterp = function (temp, x, y, z) {
             let index = x * (this.dims[1]) * (this.dims[0]) + y * (this.dims[0]) + z;
             //console.log(this.alpha[index], index)
-            if (rgba[3][this.alpha[index]] > 0) {
+            if (this.rgba[3][this.alpha[index]] > 0) {
 
                 let t = (this.t[index]) * D_T
                 let n = parseInt(t)
@@ -1505,9 +1372,8 @@ class SizeBased {
             //console.log(temp)
             let diff = sizeMax - sizeMin
             if (diff > 0.0) {
-                for (let i = 0; i < tftb.length; i++) {
-                    tftb[i] = ((temp[i] - sizeMin) * 255.0) / diff + 0.5
-                    //console.log(((temp[i] - sizeMin) * 255.0) / diff + 0.5)
+                for (let i = 0; i < this.alpha.length; i++) {
+                    this.alpha[i] = ((temp[i] - sizeMin) * 255.0) / diff + 0.5
                 }
 
             }
@@ -1644,12 +1510,5 @@ class Scissor {
         initTemplate();
     }
 }
-
-class ChanVese {
-    constructor() {
-
-    }
-}
-;
 
 export { Growing, SizeBased, Logic, Scissor, Kernel }

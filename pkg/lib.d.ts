@@ -9,13 +9,13 @@ export class MarchingCubes {
 */
   static new(): MarchingCubes;
 /**
-* @param {Uint8Array} volume
+* @param {Uint16Array} volume
+* @param {Uint8Array} mask
 * @param {number} dims_u
 * @param {number} dims_v
 * @param {number} dims_d
-* @param {number} ratio
 */
-  set_volume(volume: Uint8Array, dims_u: number, dims_v: number, dims_d: number, ratio: number): void;
+  set_volume(volume: Uint16Array, mask: Uint8Array, dims_u: number, dims_v: number, dims_d: number): void;
 /**
 * @param {number} ratio
 */
@@ -33,7 +33,7 @@ export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly __wbg_marchingcubes_free: (a: number) => void;
   readonly marchingcubes_new: () => number;
-  readonly marchingcubes_set_volume: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => void;
+  readonly marchingcubes_set_volume: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
   readonly marchingcubes_set_cube: (a: number, b: number) => void;
   readonly marchingcubes_marching_cubes: (a: number, b: number) => number;
   readonly __wbindgen_malloc: (a: number) => number;

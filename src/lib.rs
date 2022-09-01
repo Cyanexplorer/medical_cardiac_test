@@ -290,9 +290,13 @@ static EDGE_VERTICES: [[usize; 2]; 12] = [
     [3, 7],
 ];
 
-fn lerp_verts(va: [u8; 3], vb: [u8; 3], fa: u8, fb: u8, isoval: u8, v: &mut [f32; 3]) {
-    let t = (fa & (!fb)) as f32;
-    
+fn lerp_verts(va: [u8; 3], vb: [u8; 3], fa: f32, fb: f32, isoval: f32, v: &mut [f32; 3]) {
+    let t =
+    if f32::abs(fa - fb) < 0.0001 {
+        0.0
+    } else {
+        (isoval - fa) / (fb - fa)
+    };
     
     v[0] = va[0] as f32 + (vb[0] as f32 - va[0] as f32) * t;
     v[1] = va[1] as f32 + (vb[1] as f32 - va[1] as f32) * t;
@@ -303,7 +307,8 @@ fn lerp_verts(va: [u8; 3], vb: [u8; 3], fa: u8, fb: u8, isoval: u8, v: &mut [f32
 pub struct MarchingCubes {
     dims: [u32; 3],
     // The input volume, stored on the WASM side
-    volume: Vec<u8>,
+    volume: Vec<u16>, 
+    mask: Vec<u8>,
     // The computed triangles, stored on the WASM side
     triangles: Vec<f32>,
     cube: Vec<[u8;3]>
@@ -318,7 +323,7 @@ impl MarchingCubes {
             let voxel = ((cell_k + v[2] as u32) * self.dims[1] + cell_j + v[1] as u32) * self.dims[0] + cell_i + v[0] as u32;
             let group = voxel / 8;
             let index = voxel % 8;
-            values[i] = (self.volume[group as usize]>>index) & 1;
+            values[i] = (self.mask[group as usize]>>index) & 1;
         };
     }
 }
@@ -329,13 +334,15 @@ impl MarchingCubes {
         MarchingCubes {
             dims: [0, 0, 0],
             volume: Vec::new(),
+            mask: Vec::new(),
             triangles: Vec::new(),
             cube: Vec::new()
         }
     }
 
-    pub fn set_volume(&mut self, volume: Vec<u8>, dims_u: u32, dims_v: u32, dims_d: u32) {
+    pub fn set_volume(&mut self, volume: Vec<u16>, mask: Vec<u8>, dims_u: u32, dims_v: u32, dims_d: u32) {
         self.volume = volume;
+        self.mask = mask;
         
         //self.volume = volume.into_iter().rev().collect();
         self.dims[0] = dims_u ;
@@ -364,7 +371,7 @@ impl MarchingCubes {
         let diff_i = (ratio as f32 - self.dims[0] as f32) * 0.5;
         let diff_j = (ratio as f32 - self.dims[1] as f32) * 0.5;
         let diff_k = (ratio as f32 - self.dims[2] as f32) * 0.5;
-        self.set_cube(10);
+        self.set_cube(ratio as u8);
 
         for k in (0..self.dims[2] - ratio).step_by(ratio as usize) {
             for j in (0..self.dims[1] - ratio).step_by(ratio as usize) {
@@ -394,13 +401,14 @@ impl MarchingCubes {
 
                     // The triangle table gives us the mapping from index to actual
                     // triangles to return for this configuration
-                    for t in TRI_TABLE[index as usize].iter().take_while(|t| **t >= 0) {
+                    for t in TRI_TABLE[index as usize].iter().take_while(|t| ** t >= 0) {
+                        
                         let v_idx = *t as usize;
                         let v0 = EDGE_VERTICES[v_idx][0];
                         let v1 = EDGE_VERTICES[v_idx][1];
 
                         lerp_verts(self.cube[v0], self.cube[v1],
-                            vals[v0], vals[v1], 0, &mut vert);
+                            vals[v0] as f32, vals[v1] as f32, 0.5, &mut vert);
 
                         // Note: The vertex positions need to be placed on the dual grid,
                         // since that's where the isosurface is computed and defined.
@@ -413,6 +421,241 @@ impl MarchingCubes {
             }
         }
         
+        //頂部邊界
+        for j in (0..self.dims[1] - ratio).step_by(ratio as usize) {
+            for i in (0..self.dims[0] - ratio).step_by(ratio as usize)  {
+                self.compute_vertex_values( i, j, 0, &mut vals);
+                let mut index = 0;
+
+                vals[4] = vals[0];
+                vals[5] = vals[1];
+                vals[6] = vals[2];
+                vals[7] = vals[3];
+                vals[0] = 0;
+                vals[1] = 0;
+                vals[2] = 0;
+                vals[3] = 0;
+
+                for v in 0..8 {
+                    index |= (1 - vals[v]) << v;
+                }
+
+                for t in TRI_TABLE[index as usize].iter().take_while(|t| ** t >= 0) {
+                    
+                    let v_idx = *t as usize;
+                    let v0 = EDGE_VERTICES[v_idx][0];
+                    let v1 = EDGE_VERTICES[v_idx][1];
+
+                    lerp_verts(self.cube[v0], self.cube[v1],
+                        vals[v0] as f32, vals[v1] as f32, 0.5, &mut vert);
+
+                    // Note: The vertex positions need to be placed on the dual grid,
+                    // since that's where the isosurface is computed and defined.
+                    self.triangles.push(vert[0] + i as f32 + diff_i);
+                    self.triangles.push(vert[1] + j as f32 + diff_j);
+                    self.triangles.push(vert[2] as f32 - ratio as f32 * 0.5 + diff_k);
+                    
+                }
+
+            }
+        }
+
+        //底部邊界
+        for j in (0..self.dims[1] - ratio).step_by(ratio as usize) {
+            for i in (0..self.dims[0] - ratio).step_by(ratio as usize)  {
+                self.compute_vertex_values( i, j, self.dims[2] - ratio * 2, &mut vals);
+                let mut index = 0;
+
+                vals[0] = vals[4];
+                vals[1] = vals[5];
+                vals[2] = vals[6];
+                vals[3] = vals[7];
+                vals[4] = 0;
+                vals[5] = 0;
+                vals[6] = 0;
+                vals[7] = 0;
+
+                for v in 0..8 {
+                    index |= (1 - vals[v]) << v;
+                }
+
+                for t in TRI_TABLE[index as usize].iter().take_while(|t| ** t >= 0) {
+                    
+                    let v_idx = *t as usize;
+                    let v0 = EDGE_VERTICES[v_idx][0];
+                    let v1 = EDGE_VERTICES[v_idx][1];
+
+                    lerp_verts(self.cube[v0], self.cube[v1],
+                        vals[v0] as f32, vals[v1] as f32, 0.5, &mut vert);
+
+                    // Note: The vertex positions need to be placed on the dual grid,
+                    // since that's where the isosurface is computed and defined.
+                    self.triangles.push(vert[0] + i as f32 + diff_i);
+                    self.triangles.push(vert[1] + j as f32 + diff_j);
+                    self.triangles.push(vert[2] + (self.dims[2] as f32 - ratio as f32 * 1.5) + diff_k);
+                    
+                }
+
+            }
+        }
+
+        //前側邊界
+        for k in (0..self.dims[2] - ratio).step_by(ratio as usize) {
+            for i in (0..self.dims[0] - ratio).step_by(ratio as usize)  {
+                self.compute_vertex_values( i, 0, k, &mut vals);
+                let mut index = 0;
+
+                vals[3] = vals[0];
+                vals[2] = vals[1];
+                vals[7] = vals[4];
+                vals[6] = vals[5];
+                vals[0] = 0;
+                vals[1] = 0;
+                vals[4] = 0;
+                vals[5] = 0;
+
+                for v in 0..8 {
+                    index |= (1 - vals[v]) << v;
+                }
+
+                for t in TRI_TABLE[index as usize].iter().take_while(|t| ** t >= 0) {
+                    
+                    let v_idx = *t as usize;
+                    let v0 = EDGE_VERTICES[v_idx][0];
+                    let v1 = EDGE_VERTICES[v_idx][1];
+
+                    lerp_verts(self.cube[v0], self.cube[v1],
+                        vals[v0] as f32, vals[v1] as f32, 0.5, &mut vert);
+
+                    // Note: The vertex positions need to be placed on the dual grid,
+                    // since that's where the isosurface is computed and defined.
+                    self.triangles.push(vert[0] + i as f32 + diff_i);
+                    self.triangles.push(vert[1] as f32 - ratio as f32 * 0.5 + diff_j);
+                    self.triangles.push(vert[2] + k as f32 + diff_k);
+                    
+                }
+
+            }
+        }
+
+        //後側邊界
+        for k in (0..self.dims[2] - ratio).step_by(ratio as usize) {
+            for i in (0..self.dims[0] - ratio).step_by(ratio as usize)  {
+                self.compute_vertex_values( i, self.dims[1] - ratio * 2, k, &mut vals);
+                let mut index = 0;
+
+                vals[0] = vals[3];
+                vals[1] = vals[2];
+                vals[4] = vals[7];
+                vals[5] = vals[6];
+                vals[3] = 0;
+                vals[2] = 0;
+                vals[7] = 0;
+                vals[6] = 0;
+
+                for v in 0..8 {
+                    index |= (1 - vals[v]) << v;
+                }
+
+                for t in TRI_TABLE[index as usize].iter().take_while(|t| ** t >= 0) {
+                    
+                    let v_idx = *t as usize;
+                    let v0 = EDGE_VERTICES[v_idx][0];
+                    let v1 = EDGE_VERTICES[v_idx][1];
+
+                    lerp_verts(self.cube[v0], self.cube[v1],
+                        vals[v0] as f32, vals[v1] as f32, 0.5, &mut vert);
+
+                    // Note: The vertex positions need to be placed on the dual grid,
+                    // since that's where the isosurface is computed and defined.
+                    self.triangles.push(vert[0] + i as f32 + diff_i);
+                    self.triangles.push(vert[1] + (self.dims[1] as f32 - ratio as f32 * 1.5) + diff_j);
+                    self.triangles.push(vert[2] + k as f32 + diff_k);
+                    
+                }
+
+            }
+        }
+
+        //左側邊界
+        for k in (0..self.dims[2] - ratio).step_by(ratio as usize) {
+            for j in (0..self.dims[1] - ratio).step_by(ratio as usize)  {
+                self.compute_vertex_values( 0, j, k, &mut vals);
+                let mut index = 0;
+
+                vals[1] = vals[0];
+                vals[2] = vals[3];
+                vals[5] = vals[4];
+                vals[6] = vals[7];
+                vals[0] = 0;
+                vals[3] = 0;
+                vals[4] = 0;
+                vals[7] = 0;
+
+                for v in 0..8 {
+                    index |= (1 - vals[v]) << v;
+                }
+
+                for t in TRI_TABLE[index as usize].iter().take_while(|t| ** t >= 0) {
+                    
+                    let v_idx = *t as usize;
+                    let v0 = EDGE_VERTICES[v_idx][0];
+                    let v1 = EDGE_VERTICES[v_idx][1];
+
+                    lerp_verts(self.cube[v0], self.cube[v1],
+                        vals[v0] as f32, vals[v1] as f32, 0.5, &mut vert);
+
+                    // Note: The vertex positions need to be placed on the dual grid,
+                    // since that's where the isosurface is computed and defined.
+                    self.triangles.push(vert[0] as f32 - ratio as f32 * 0.5 + diff_i);
+                    self.triangles.push(vert[1] + j as f32 + diff_j);
+                    self.triangles.push(vert[2] + k as f32 + diff_k);
+                    
+                }
+
+            }
+        }
+
+        //右側邊界
+        for k in (0..self.dims[2] - ratio).step_by(ratio as usize) {
+            for j in (0..self.dims[1] - ratio).step_by(ratio as usize)  {
+                self.compute_vertex_values( self.dims[0] - ratio * 2, j, k, &mut vals);
+                let mut index = 0;
+
+                vals[0] = vals[1];
+                vals[3] = vals[2];
+                vals[4] = vals[5];
+                vals[7] = vals[6];
+                vals[1] = 0;
+                vals[2] = 0;
+                vals[5] = 0;
+                vals[6] = 0;
+
+                for v in 0..8 {
+                    index |= (1 - vals[v]) << v;
+                }
+
+                for t in TRI_TABLE[index as usize].iter().take_while(|t| ** t >= 0) {
+                    
+                    let v_idx = *t as usize;
+                    let v0 = EDGE_VERTICES[v_idx][0];
+                    let v1 = EDGE_VERTICES[v_idx][1];
+
+                    lerp_verts(self.cube[v0], self.cube[v1],
+                        vals[v0] as f32, vals[v1] as f32, 0.5, &mut vert);
+
+                    // Note: The vertex positions need to be placed on the dual grid,
+                    // since that's where the isosurface is computed and defined.
+                    self.triangles.push(vert[0] + (self.dims[0]as f32 - ratio as f32 * 1.5) + diff_i);
+                    self.triangles.push(vert[1] + j as f32 + diff_j);
+                    self.triangles.push(vert[2] + k as f32 + diff_k);
+                    
+                }
+
+            }
+        }
+
+
         unsafe { js_sys::Float32Array::view(&self.triangles[..]) }
     }
 }

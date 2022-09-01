@@ -46,7 +46,22 @@ function getStringFromWasm0(ptr, len) {
     return cachedTextDecoder.decode(getUint8Memory0().subarray(ptr, ptr + len));
 }
 
+let cachegetUint16Memory0 = null;
+function getUint16Memory0() {
+    if (cachegetUint16Memory0 === null || cachegetUint16Memory0.buffer !== wasm.memory.buffer) {
+        cachegetUint16Memory0 = new Uint16Array(wasm.memory.buffer);
+    }
+    return cachegetUint16Memory0;
+}
+
 let WASM_VECTOR_LEN = 0;
+
+function passArray16ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 2);
+    getUint16Memory0().set(arg, ptr / 2);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
 
 function passArray8ToWasm0(arg, malloc) {
     const ptr = malloc(arg.length * 1);
@@ -79,16 +94,18 @@ export class MarchingCubes {
         return MarchingCubes.__wrap(ret);
     }
     /**
-    * @param {Uint8Array} volume
+    * @param {Uint16Array} volume
+    * @param {Uint8Array} mask
     * @param {number} dims_u
     * @param {number} dims_v
     * @param {number} dims_d
-    * @param {number} ratio
     */
-    set_volume(volume, dims_u, dims_v, dims_d, ratio) {
-        var ptr0 = passArray8ToWasm0(volume, wasm.__wbindgen_malloc);
+    set_volume(volume, mask, dims_u, dims_v, dims_d) {
+        var ptr0 = passArray16ToWasm0(volume, wasm.__wbindgen_malloc);
         var len0 = WASM_VECTOR_LEN;
-        wasm.marchingcubes_set_volume(this.ptr, ptr0, len0, dims_u, dims_v, dims_d, ratio);
+        var ptr1 = passArray8ToWasm0(mask, wasm.__wbindgen_malloc);
+        var len1 = WASM_VECTOR_LEN;
+        wasm.marchingcubes_set_volume(this.ptr, ptr0, len0, ptr1, len1, dims_u, dims_v, dims_d);
     }
     /**
     * @param {number} ratio

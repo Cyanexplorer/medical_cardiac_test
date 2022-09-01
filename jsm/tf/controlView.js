@@ -138,21 +138,53 @@ class ControlView extends THREE.EventDispatcher {
         let directionalLight = new THREE.DirectionalLight(0xffffff, 1);
         scene.add(directionalLight)
 
-        let inputInstance = InputModule.getInstance(arg, domElement)
+        let initColormapHandler = () => {
+            let inputInstance = InputModule.getInstance(arg, domElement)
 
-        renderer.domElement.addEventListener('mousemove', (evt) => {
-            evt.preventDefault()
+            let enable = false
+            let pointers = []
+            renderer.domElement.addEventListener('pointerdown', (evt) => {
+                enable = true
+                pointers.push(evt)
+            })
 
-            // �̽������I���H�~���ƥ�
-            if (evt.buttons != 1 || evt.button != 0) {
-                return
-            }
+            window.addEventListener('pointermove', (evt) => {
+                if (!enable)
+                    return
 
-            let pos = getMousePos(renderer.domElement, evt)
-            inputInstance.mouseMoveHandler2(pos[0], pos[1])
-            this.updateRGBA()
-        })
+                evt.preventDefault()
 
+                // for mouse event
+                /*
+                if (evt.buttons != 1 || evt.button != 0) {
+                    return
+                }*/
+
+                // for pointer event
+                if (evt.buttons != 1 || evt.button != -1) {
+                    return
+                }
+
+                let pos = getMousePos(renderer.domElement, evt)
+                inputInstance.mouseMoveHandler2(parseInt(pos[0]), parseInt(pos[1]))
+                this.updateRGBA()
+            })
+
+            window.addEventListener('pointerup', (evt) => {
+                enable = false
+                for (let i = 0; i < pointers.length; i++) {
+
+                    if (pointers[i].pointerId == evt.pointerId) {
+
+                        pointers.splice(i, 1);
+                        return;
+
+                    }
+
+                }
+            })
+        }
+        initColormapHandler()
 
         //ColorPicker
         let colorPicker = document.createElement('div')
@@ -196,10 +228,18 @@ class ControlView extends THREE.EventDispatcher {
                 this.updateRGBA()
             })
 
-            t.marker.addEventListener('mousedown', (evt) => {
+            t.marker.addEventListener('pointerdown', (evt) => {
+                // for mouse event
+                /*
+                if (evt.buttons != 1 || evt.button != 0) {
+                    return
+                }*/
+
+                // for pointer event
                 if (evt.buttons != 1 || evt.button != 0) {
                     return
                 }
+
                 action = -1
                 arg.clickTriangle = t
 
@@ -221,17 +261,7 @@ class ControlView extends THREE.EventDispatcher {
                 arg.fillColorUpdate()
             })
 
-            t.marker.addEventListener('click', (evt) => {
-                if (evt.buttons != 0 || evt.button != 0) {
-                    return
-                }
-
-                if (action != -1) {
-                    evt.preventDefault()
-                }
-            })
-
-            window.addEventListener('mouseup', () => {
+            window.addEventListener('pointerup', () => {
                 arg.clickTriangle = null
             })
         }
@@ -245,7 +275,14 @@ class ControlView extends THREE.EventDispatcher {
             }
         }
 
-        colorPicker.addEventListener('mousedown', (evt) => {
+        colorPicker.addEventListener('pointerdown', (evt) => {
+            // for mouse event
+            /*
+            if (evt.buttons != 1 || evt.button != 0) {
+                return
+            }*/
+
+            // for pointer event
             if (evt.buttons != 1 || evt.button != 0) {
                 return
             }
@@ -256,8 +293,8 @@ class ControlView extends THREE.EventDispatcher {
                 pos = 20
             }
 
-            if (pos > colorPicker.clientWidth -20) {
-                pos =  colorPicker.clientWidth - 20
+            if (pos > colorPicker.clientWidth - 20) {
+                pos = colorPicker.clientWidth - 20
             }
 
             pos /= colorPicker.clientWidth
@@ -267,8 +304,15 @@ class ControlView extends THREE.EventDispatcher {
             this.updateRGBA()
         })
 
-        colorPicker.addEventListener('mousemove', (evt) => {
+        colorPicker.addEventListener('pointermove', (evt) => {
+            // for mouse event
+            /*
             if (evt.buttons != 1 || evt.button != 0) {
+                return
+            }*/
+
+            // for pointer event
+            if (evt.buttons != 1 || evt.button != -1) {
                 return
             }
 
@@ -283,8 +327,8 @@ class ControlView extends THREE.EventDispatcher {
                 pos = 20
             }
 
-            if (pos > colorPicker.clientWidth -20) {
-                pos =  colorPicker.clientWidth - 20
+            if (pos > colorPicker.clientWidth - 20) {
+                pos = colorPicker.clientWidth - 20
             }
 
             pos /= colorPicker.clientWidth

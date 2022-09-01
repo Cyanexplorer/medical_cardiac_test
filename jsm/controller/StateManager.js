@@ -1,7 +1,6 @@
-import * as Opt from './ImageProcessTools.js'
-import { State } from "../model/State.js"
+import * as Opt from './MaskProcessingTools.js'
 import { Segment, ImageData } from '../model/Segment.js'
-import { MaskImage } from "./MaskImage.js"
+import { MaskImage } from "../model/MaskImage.js"
 
 class SLController {
     constructor(state) {
@@ -12,7 +11,7 @@ class SLController {
         this.currentStep = 1
         this.length = 20
 
-        this.tmpSegment = new Segment('tmp', state.originSegment.dims, null, false)
+        this.tmpSegment = new Segment('tmp', state.volume.dims, null, false)
 
         this.mode = {
             NONE: -1,
@@ -21,7 +20,7 @@ class SLController {
             removeSeg: 2,
             modifySeg: 3,
             changeIndex: 4,
-            cropImg:5
+            cropImg: 5
         }
 
         this.stack = new Array(this.length).fill(0).map(() => {
@@ -58,10 +57,6 @@ class SLController {
         }
     }
 
-    // �O�s���v�T��Segment
-    // action:�ާ@����
-    // index:�ާ@�ؼ�
-    // segemnt:�ؼФ��e
     save(action) {
 
         this.currentStep = (this.currentStep + 1) % this.length
@@ -83,7 +78,7 @@ class SLController {
             case this.mode.cropImg:
                 break
         }
-        
+
         this.onload(this.undoEnable, this.redoEnable)
     }
 
@@ -109,10 +104,16 @@ class SLController {
                 break
             case this.mode.modifySeg:
 
+                //設置上一步驟的focused index
                 this.state.focusedSegIndex = stk.index
+
+                //暫存當前狀態
                 this.tmpSegment.copyfrom(this.state.focusedSegment)
 
+                //設置上一步驟的內容
                 this.state.focusedSegment.copyfrom(stk.content)
+
+                //設置上一步驟為暫存內容
                 this.setStackSeg(this.tmpSegment)
                 break
             case this.mode.cropImg:
@@ -142,9 +143,16 @@ class SLController {
                 this.state.focusedSegIndex = stk.index - 1
                 break
             case this.mode.modifySeg:
+                //設置回undo前的focused index
                 this.state.focusedSegIndex = stk.index
+
+                //暫存當前狀態
                 this.tmpSegment.copyfrom(this.state.focusedSegment)
+
+                //設置為undo前的內容
                 this.state.focusedSegment.copyfrom(stk.content)
+
+                //使用暫存內容還原stack
                 this.setStackSeg(this.tmpSegment)
                 break
             case this.mode.cropImg:
@@ -158,18 +166,15 @@ class SLController {
 class StateManager {
 
     constructor(state) {
-        this.maskImages = []
+        let uvdDims = state.volume.dims
+        
+        this.maskImages = [
+            new MaskImage(state, 0, uvdDims[0], uvdDims[1]),
+            new MaskImage(state, 1, uvdDims[0], uvdDims[2]),
+            new MaskImage(state, 2, uvdDims[1], uvdDims[2])
+        ]
+
         this.events = []
-
-        for (let i = 0; i < 3; i++) {
-            this.maskImages.push(new MaskImage(state, i))
-        }
-
-        let uvdDims = state.originSegment.dims
-
-        this.maskImages[axisUV].setCanvasSize(uvdDims[0], uvdDims[1]);
-        this.maskImages[axisUD].setCanvasSize(uvdDims[0], uvdDims[2]);
-        this.maskImages[axisVD].setCanvasSize(uvdDims[1], uvdDims[2]);
 
         this.mode = {
             NONE: 0,
@@ -187,16 +192,12 @@ class StateManager {
         this.selectedMode = this.mode.NONE
         this.state = state
 
-        for (let i = 0; i < this.maskImages.length; i++) {
-            this.maskImages[i].state = this.state
-        }
-
         this.slc = new SLController(this.state)//存檔/讀檔控制
 
         this.cropTools = new Opt.CropTools(this.state, this.maskImages)
         this.cropTools.enable = true
         this.cropTools.onload = () => {
-            this.notify()
+            this.notify('segmentUpdate')
         }
 
         this.listControlTools = new Opt.ListControlTools(this.state, this.maskImages)
@@ -211,7 +212,7 @@ class StateManager {
 
         }
         this.listControlTools.onload = () => {
-            this.notify()
+            this.notify('segmentUpdate')
         }
 
         this.logicTools = new Opt.LogicTools(this.state)
@@ -219,7 +220,7 @@ class StateManager {
             this.slc.save(this.slc.mode.modifySeg)
         }
         this.logicTools.onload = () => {
-            this.notify()
+            this.notify('segmentUpdate')
         }
 
         this.brushTools = new Opt.BrushTools(this.state, this.maskImages)
@@ -227,7 +228,7 @@ class StateManager {
             this.slc.save(this.slc.mode.modifySeg)
         }
         this.brushTools.onload = () => {
-            this.notify()
+            this.notify('segmentUpdate')
         }
 
         this.filterTools = new Opt.FilterTools(this.state)
@@ -235,7 +236,7 @@ class StateManager {
             this.slc.save(this.slc.mode.modifySeg)
         }
         this.filterTools.onload = () => {
-            this.notify()
+            this.notify('segmentUpdate')
         }
 
         this.regionGrowing = new Opt.GrowingTools(this.state, this.maskImages)
@@ -243,7 +244,7 @@ class StateManager {
             this.slc.save(this.slc.mode.modifySeg)
         }
         this.regionGrowing.onload = () => {
-            this.notify()
+            this.notify('segmentUpdate')
         }
 
         this.thresholdTools = new Opt.ThresholdTools(this.state)
@@ -251,7 +252,7 @@ class StateManager {
             this.slc.save(this.slc.mode.modifySeg)
         }
         this.thresholdTools.onload = () => {
-            this.notify()
+            this.notify('segmentUpdate')
         }
 
         let domElement = document.getElementById('transfer_layout')
@@ -260,7 +261,7 @@ class StateManager {
             this.slc.save(this.slc.mode.modifySeg)
         }
         this.transferTools.onload = () => {
-            this.notify()
+            this.notify('segmentUpdate')
         }
 
         domElement = document.getElementById('tool_sizebased_histogram')
@@ -269,7 +270,7 @@ class StateManager {
             this.slc.save(this.slc.mode.modifySeg)
         }
         this.sizeBasedTools.onload = () => {
-            //this.notify()
+            this.notify('segmentUpdate')
         }
 
         domElement = document.getElementById('dcmViewer')
@@ -278,11 +279,11 @@ class StateManager {
             this.slc.save(this.slc.mode.modifySeg)
         }
         this.scissorTools.onload = () => {
-            this.notify()
+            this.notify('segmentUpdate')
         }
 
 
-        this.updateBaseSegment()
+        this.updatevolume()
     }
 
     disableAll() {
@@ -301,12 +302,12 @@ class StateManager {
     }
 
     // 更新CT影像中的資料
-    updateBaseSegment() {
+    updatevolume() {
 
         return new Promise((resolve) => {
-            this.state.baseDataReset()
+            this.state.volumeReset()
             this.state.generate(() => {
-                this.notify('update')
+                this.notify('imageUpdate')
                 resolve()
             })
         })
@@ -315,6 +316,11 @@ class StateManager {
 
     updateColorMap() {
         this.notify('colormap')
+    }
+
+    setManagerToolsByKey(key, enabled = true){
+        let mode = this.mode[key]
+        this.setManagerTools(mode, enabled)
     }
 
     setManagerTools(option, enabled = true) {
@@ -378,7 +384,7 @@ class StateManager {
 
     setFocusedLayer(axis, index = this.maskImages[axis].index) {
 
-        if (this.state.baseSegment == null) {
+        if (this.state.volume == null) {
             return
         }
 
@@ -389,12 +395,11 @@ class StateManager {
         let imgdata = image.getBaseImage()
 
         //從3D中取出指定層數的2D影像，以canvas data保存
-        this.state.baseSegment.imgLoader(axis, index, imgdata)
-        //this.state.originSegment.addBuffer(axis, index, imgdata)
+        this.state.volume.imgLoader(axis, index, imgdata)
 
-        if (this.state.baseSegment.used) {
+        if (this.state.volume.used) {
             for (let i = 0, j = 0; i < data.length; i += 4, j++) {
-                data[i + 3] = this.state.baseSegment.alpha[j]
+                data[i + 3] = this.state.volume.alpha[j]
             }
         }
 
@@ -424,32 +429,41 @@ class StateManager {
     }
 
     addNotifyEvent = (event, type = 'none') => {
-        if(this.events[type] == null){
+        if (this.events[type] == null) {
             this.events[type] = []
         }
+
+        let index = this.events[type].findIndex((e) => {
+            return e === event
+        })
+
+        if (index != -1)
+            return
 
         this.events[type].push(event)
     }
 
     removeNotifyEvent = (event, type = 'none') => {
-        if(this.events[type] == null){
+        if (this.events[type] == null) {
             return
         }
 
-        let index = this.events[type].findIndex(event)
-        this.events[type].splice(index,1)
+        let index = this.events[type].findIndex((e) => {
+            return e === event
+        })
+        if (index == -1)
+            return
+
+        this.events[type].splice(index, 1)
     }
 
     notify(type = 'none') {
-        for (let index in this.maskImages) {
-            this.setFocusedLayer(index)
-        }
 
-        if(this.events[type] == null){
+        if (this.events[type] == null) {
             return
         }
 
-        for(let event of this.events[type]){
+        for (let event of this.events[type]) {
             event()
         }
     }

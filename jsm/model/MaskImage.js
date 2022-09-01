@@ -1,6 +1,8 @@
+import { Segment } from "./Segment.js"
+
 export class MaskImage {
 
-    constructor(state, orientaion = 0) {
+    constructor(state, orientaion = 0, width, height) {
         this.exposure = 1
         this.contrast = 1
         this.index = -1
@@ -10,22 +12,24 @@ export class MaskImage {
         this.layers = []
         this.state = state
 
-        this.size = []
+        //this.previewData = new Segment('',[width, height,1])
+
+        this.size = [width, height]
         this.compressedSize = []
 
         //中介層，用於影像(dicom)尺寸與UI(canvas)尺寸的轉換作業，防止畫筆工具於特定情形下變形
+
         let convertor = {
             context: document.createElement('canvas').getContext('2d'),
             palatte: null,
             process: () => {
                 convertor.context.putImageData(convertor.palatte, 0, 0)
-            },
-            setSize: (width, height) => {
-                convertor.context.canvas.width = width
-                convertor.context.canvas.height = height
-                convertor.palatte = convertor.context.getImageData(0, 0, width, height)
             }
         }
+
+        convertor.palatte = convertor.context.getImageData(0, 0, width, height),
+        convertor.context.canvas.width = width
+        convertor.context.canvas.height = height
 
         //background: 背景圖層，用於顯示dicom影像
         //segment:樣板圖層，用於顯示標記範圍
@@ -40,16 +44,12 @@ export class MaskImage {
         for (let key in this.domElements) {
             this.domElements[key].canvas = document.createElement('canvas')
             this.domElements[key].context = this.domElements[key].canvas.getContext('2d')
-            this.domElements[key].palatte = ''
 
-            this.domElements[key].setSize = (width, height) => {
-                let nw = width
-                let nh = parseInt(height * this.thickness[1] / this.thickness[0])
-
-                this.domElements[key].context.canvas.width = nw
-                this.domElements[key].context.canvas.height = nh
-                this.domElements[key].palatte = this.domElements[key].context.getImageData(0, 0, nw, nh)
-            }
+            let nw = width
+            let nh = parseInt(height * this.thickness[1] / this.thickness[0])
+            this.domElements[key].context.canvas.width = nw
+            this.domElements[key].context.canvas.height = nh
+            this.domElements[key].palatte = this.domElements[key].context.getImageData(0, 0, nw, nh)
 
             this.domElements[key].getImageData = () => {
                 let w = this.domElements[key].context.canvas.width
@@ -83,19 +83,6 @@ export class MaskImage {
                 canvas.style.width = `${width}px`
                 canvas.style.height = `${height}px`
             }
-        }
-
-        //更新畫布尺寸
-        this.setCanvasSize = (width, height, sync = true) => {
-
-            this.size = [width, height]
-
-            for (let index in this.domElements) {
-                this.domElements[index].setSize(width, height)
-            }
-
-            convertor.setSize(width, height)
-            //console.log(convertor)
         }
 
         // 載入背景(CT影像)
@@ -294,7 +281,6 @@ export class MaskImage {
             return this.background.toDataURL()
         }
 
-        this.setCanvasSize(this.background.width, this.background.height)
     }
 
     get background() {

@@ -1,7 +1,7 @@
 import init, { MarchingCubes } from "../../pkg/lib.js";
 import * as THREE from "../build/three.module.js";
 import { OrbitControls } from "../example/jsm/controls/OrbitControls.js";
-import { SlicerControl } from "../parts/marker.js";
+import { SlicerGroup } from "../parts/marker.js";
 import { WEBGL } from "../WebGL.js";
 import { mergeVertices } from "../example/jsm/utils/BufferGeometryUtils.js";
 import { MMDLoader } from "../example/jsm/loaders/MMDLoader.js";
@@ -9,10 +9,9 @@ import { STLLoader } from "../example/jsm/loaders/STLLoader.js";
 import { OBJLoader } from "../example/jsm/loaders/OBJLoader.js";
 import { MTLLoader } from "../example/jsm/loaders/MTLLoader.js";
 import { OutlineEffect } from '../example/jsm/effects/OutlineEffect.js';
-import { VolumeRenderShader1 } from '../tf/VolumeShader.js';
+import { VolumeRenderShader_iso, VolumeRenderShader_mip } from '../tf/VolumeShader.js';
 
 import { BinaryArray } from "../model/ExtendedArray.js"
-import * as mc from '../example/jsm/objects/MarchingCubes.js'
 
 class Histogram {
 
@@ -46,7 +45,7 @@ class Histogram {
             let height = domElement.clientHeight - margin.top - margin.bottom
 
             // append the svg object to the specified element
-            let svg = d3.select('#' + domElement.id)
+            let svg = d3.select(domElement)
                 .append('svg')
                 .attr('width', width + margin.left + margin.right)
                 .attr('height', height + margin.top + margin.bottom)
@@ -225,43 +224,46 @@ class SignalDistribution {
 
         let ctx = canvas.getContext('2d')
 
-        let range = 100
-
         this.loadView = function (domElement) {
 
             domElement.appendChild(canvas)
         }
 
+        let getPosition = (x, y, width, height) => {
+            return (height - 1 - y) * width + x
+        }
+
         this.updateView = (imgData, stored) => {
 
-            let max = 0
-            let histogram = new Uint16Array(stored).fill(0)
+            let max = 2 ** stored
+            let udata = imgData.data
+            let histogram = new Uint32Array(max).fill(0)
 
+            let counterMax = 0
             for (let i = 0; i < imgData.length; i++) {
-                let index = parseInt(imgData[i])
-                histogram[index]++
-
-                if (histogram[index] > max) {
-                    max = histogram[index]
+                histogram[udata[i]]++
+                if (counterMax < histogram[udata[i]]) {
+                    counterMax = histogram[udata[i]]
                 }
             }
 
             let palette = ctx.getImageData(0, 0, 256, 100)
             let data = palette.data
-            let ratio = range / (max + 1)
+
+            let ratioX = (256 - 1) / (max - 1)
+            let ratioY = (100 - 1) / (counterMax - 1)
 
             for (let i = 0; i < 256; i++) {
-                let height = (histogram[i] + 1) * ratio
-                let index = i
+                let y = (histogram[i]) * ratioY
+                let x = i * ratioX
+
+                let index = getPosition(x, y, 256, 100)
 
                 for (let j = 0; j < height; j++) {
-
                     data[4 * index] = 255
                     data[4 * index + 1] = 255
                     data[4 * index + 2] = 255
                     data[4 * index + 3] = 255
-
-                    index += 256
                 }
 
             }
@@ -271,9 +273,10 @@ class SignalDistribution {
     }
 }
 
-class DimensionView {
-    constructor(manager) {
-        this.domElement = document.getElementById('workingScene')
+class DimensionView extends THREE.EventDispatcher {
+    constructor(manager, domElements) {
+        super()
+
         this.uvdDims = [0, 0, 0]
         this.imgLayerValue = [-1, -1, -1]
         this.contrastValue = [0, 0, 0]
@@ -286,19 +289,15 @@ class DimensionView {
         let contrastLabel = new Array(3)
         let imgGroups = new Array(3)
 
-        this.domElements = [
-            document.getElementById('horizontalView'),
-            document.getElementById('coronalView'),
-            document.getElementById('sagittalView')
-        ]
+        let changeEvent = { type: 'change' }
 
         for (let i = 0;
             i < 3; i++) {
-            viewports[i] = this.domElements[i].querySelector('.viewport')
-            slider[i] = this.domElements[i].querySelector(".viewer-slider")
-            counterLabel[i] = this.domElements[i].querySelector(".counter")
-            exposureLabel[i] = this.domElements[i].querySelector(".exposure")
-            contrastLabel[i] = this.domElements[i].querySelector(".contrast")
+            viewports[i] = domElements[i].querySelector('.viewport')
+            slider[i] = domElements[i].querySelector(".viewer-slider")
+            counterLabel[i] = domElements[i].querySelector(".counter")
+            exposureLabel[i] = domElements[i].querySelector(".exposure")
+            contrastLabel[i] = domElements[i].querySelector(".contrast")
         }
 
         let init = () => {
@@ -383,8 +382,14 @@ class DimensionView {
                     action = -1
                 })
 
-            }
+                manager.addNotifyEvent(() => {
+                    this.updateDcmView()
+                }, 'segmentUpdate')
 
+                manager.addNotifyEvent(() => {
+                    this.updateDcmView()
+                }, 'imageUpdate')
+            }
         }
 
         this.sliderUpdate = (axis) => {
@@ -415,7 +420,7 @@ class DimensionView {
             this.sizeReload(axis)
             this.showDicom(axis, index)
 
-            manager.notify('imageUpdate')
+            this.dispatchEvent(changeEvent)
         }
 
         //axis: Top2button(TB) is 0; Front2Back(FB) is 1; Left2Right(LR) is 2
@@ -467,10 +472,12 @@ class DimensionView {
 
             for (let i = 0; i < 3; i++) {
                 slider[i].min = 0
-                slider[i].max = 1
-                slider[i].step = 1 / (uvdDims[2 - i] - 1) / 200
-                slider[i].value = 0.5
-                this.scrollto(i, 0.5)
+                slider[i].max = uvdDims[2 - i] - 1
+                slider[i].step = 0.05
+
+                let mid = Math.round(uvdDims[2 - i] / 2)
+                slider[i].value = mid
+                this.scrollto(i, mid)
             }
 
         }
@@ -481,9 +488,9 @@ class DimensionView {
             this.sliderUpdate(axisVD)
         }
 
-        this.scrollto = (axis, percent) => {
+        this.scrollto = (axis, index) => {
             //console.log(percent * this.uvdDims[2 - axis])
-            this.imgLayerValue[axis] = Math.round(percent * (this.uvdDims[2 - axis] - 1))
+            this.imgLayerValue[axis] = index
             this.sliderUpdate(axis)
         }
 
@@ -513,7 +520,7 @@ class CADViewer {
     constructor(domElement) {
         this.scene = null
         this.camera = null
-        this.clippingControl = null
+        this.clippingGroup = null
         this.renderer = null
         this.controller = null
         this.domElement = domElement
@@ -548,22 +555,15 @@ class CADViewer {
             new MTLLoader().load('model/obj/f-16.mtl', (mtl) => {
 
                 new OBJLoader().setMaterials(mtl).load('model/obj/f-16.obj', (object) => {
-                    console.log(object)
+                    //console.log(object)
                     let box = new THREE.Box3().setFromObject(object)
-
-                    /*
-                    let geometry = object.geometry
-                    geometry.computeVertexNormals()
-                    geometry.computeBoundingBox()
-                    geometry.center()
-                    */
 
                     let min = box.min
                     let max = box.max
                     let scaleX = model_unit / (max.x - min.x)
                     let scaleY = model_unit / (max.y - min.y)
                     let scaleZ = model_unit / (max.z - min.z)
-                    console.log(scaleX, scaleY, scaleZ, box)
+                    //console.log(scaleX, scaleY, scaleZ, box)
 
                     for (let i = 0; i < object.children.length; i++) {
                         //object.children[i].scale.set(scaleX, scaleY, scaleZ)
@@ -579,32 +579,6 @@ class CADViewer {
                 })
             })
 
-
-
-            /*
-             
-             new OBJLoader().load('model/obj/f-16.obj', (object) => {
-             
-             model[1] = object
-             
-             let boundingBox = new THREE.Box3().setFromObject(object)
-             let min = boundingBox.min
-             let max = boundingBox.max
-             let scaleX = model_unit / (max.x - min.x)
-             let scaleY = model_unit / (max.y - min.y)
-             let scaleZ = model_unit / (max.z - min.z)
-             
-             let center = new THREE.Vector3()
-             boundingBox.getCenter(center)
-             
-             object.scale.set(scaleX, scaleY, scaleZ)
-             object.position.set(-center.x * scaleX, -center.y * scaleY, -center.z * scaleZ)
-             
-             this.scene.add(model[1])
-             
-             onload()
-             })
-             */
         }
 
         this.copyCamera = (c) => {
@@ -619,30 +593,36 @@ class CADViewer {
             setCameraSize(width, height)
         }
 
-        this.setOrientation = (index) => {
-            this.clippingControl.setClipping(0, false)
-            this.clippingControl.setClipping(1, false)
-            this.clippingControl.setClipping(2, false)
-            switch (index) {
-                case 0:
-                    this.camera.position.set(0, 16, 0);
-                    this.camera.up.set(0, 0, 1);
-                    this.camera.lookAt(0, 0, 0);
-                    this.clippingControl.setClipping(0, true)
-                    break
-                case 1:
-                    this.camera.position.set(0, 0, 16);
-                    this.camera.up.set(0, 1, 0);
-                    this.camera.lookAt(0, 0, 0);
-                    this.clippingControl.setClipping(1, true)
-                    break
-                case 2:
-                    this.camera.position.set(16, 0, 0);
-                    this.camera.up.set(0, 1, 0);
-                    this.camera.lookAt(0, 0, 0);
-                    this.clippingControl.setClipping(2, true)
-                    break
+        let cameraActions = {
+            0: () => {
+                this.camera.position.set(0, 16, 0);
+                this.camera.up.set(0, 0, 1);
+                this.camera.lookAt(0, 0, 0);
+                this.clippingGroup.setClipping(0, true)
+            },
+            1: () => {
+                this.camera.position.set(0, 0, 16);
+                this.camera.up.set(0, 1, 0);
+                this.camera.lookAt(0, 0, 0);
+                this.clippingGroup.setClipping(1, true)
+            },
+            2: () => {
+                this.camera.position.set(16, 0, 0);
+                this.camera.up.set(0, 1, 0);
+                this.camera.lookAt(0, 0, 0);
+                this.clippingGroup.setClipping(2, true)
             }
+        }
+
+        this.setOrientation = (index) => {
+            this.clippingGroup.setClipping(0, false)
+            this.clippingGroup.setClipping(1, false)
+            this.clippingGroup.setClipping(2, false)
+
+            if (cameraActions[index] instanceof Function) {
+                cameraActions[index]()
+            }
+
             this.camera.updateProjectionMatrix()
             this.renderScene()
         }
@@ -690,52 +670,11 @@ class CADViewer {
                 onWindowResize()
             });
 
-            //Cliping Control
-            this.clippingControl = new SlicerControl(this.scene)
-            this.clippingControl.addPlane()
-            this.setClippingDim(new Array(3).fill(model_unit))
-            this.setClippingRatio(axisXY, 0)
-            this.setClippingRatio(axisXZ, 0)
-            this.setClippingRatio(axisYZ, 0)
-            this.clippingControl.setClippingeAll(true)
-            this.clippingControl.setVisableAll(false)
-
             // Render
             loadModel();
-            //console.log(model)
-
-            //this.renderScene()
         }
 
         init()
-    }
-
-    setOnFocus(axis, option) {
-        this.clippingControl.onFocus(axis, option)
-        this.renderScene();
-    }
-
-    setClippingMesh(mesh) {
-        this.clippingControl.addObject(mesh)
-        this.renderScene();
-    }
-
-    setClippingDim(dims) {
-        let nDims = [dims[0] / dims[2], dims[1] / dims[2], 1]
-        this.clippingControl.thickness = this.thickness
-        this.clippingControl.resize(nDims, 0, false)
-        this.clippingControl.reset()
-        this.renderScene();
-    }
-
-    setClippingRatio(type, ratio) {
-        this.clippingControl.setIndexRatio(type, ratio)
-
-        this.renderScene();
-    }
-
-    getClippingPlaneIndex() {
-        return this.clippingControl.getClippingPlaneIndex() * 10
     }
 
     vmax = 1
@@ -775,143 +714,198 @@ class CADViewer {
 
 // 體積投影模型生成
 class VolumeViewer {
-    constructor(domElement) {
+    constructor(manager, domElement) {
 
         this.domElement = domElement
         this.camera = null
         this.renderer = null
         this.scene = null
         this.renderType = 0
-        this.colormap = new Float32Array(256 * 4).fill(1)
 
         const model_unit = 1
         const camera_unit = 2
 
-        let model = null
+        let model = new THREE.Group()
 
-        this.renderVolume = (volDims, dataBuffer, spacing = [1, 1, 1], filterBuffer = null, sizeData) => {
+        let initGroup = () => {
+            let volume = manager.state.volume
+            let volDims = volume.thumbnailSize
+            let spacing = manager.state.info.spacing
 
-            //console.log(volDims, dataBuffer, spacing = [1, 1, 1], filterBuffer = null, sizeData)
+            let max = Math.max(
+                volDims[0] * spacing[0],
+                volDims[1] * spacing[1],
+                volDims[2] * spacing[2])
 
-            let max = Math.max(volDims[0] * spacing[0], volDims[1] * spacing[1], volDims[2] * spacing[2])
+            model.scale.set(
+                -model_unit / max * spacing[0],
+                model_unit / max * spacing[1],
+                model_unit / max * spacing[2])
 
-            if (model == null) {
+            model.position.set(
+                volDims[0] * model_unit / max * spacing[0] / 2,
+                -volDims[1] * model_unit / max * spacing[1] / 2,
+                -volDims[2] * model_unit / max * spacing[2] / 2)
 
-                //初始化紋理
-                const datatexture = new THREE.DataTexture3D();
-                const filtertexture = new THREE.DataTexture3D();
-                const sizetextures = new THREE.DataTexture3D();
+            let m = new THREE.Matrix4().identity()
+            m.makeRotationX(-Math.PI / 2)
+            model.applyMatrix4(m)
+            m.makeRotationZ(Math.PI)
+            model.applyMatrix4(m)
+        }
 
-                datatexture.format = filtertexture.format = sizetextures.format = THREE.RedFormat;
-                datatexture.type = filtertexture.type = sizetextures.type = THREE.UnsignedByteType;
-                datatexture.minFilter = filtertexture.minFilter = sizetextures.minFilter = THREE.LinearFilter;
-                datatexture.magFilter = filtertexture.magFilter = sizetextures.magFilter = THREE.LinearFilter;
+        let initVolume = () => {
 
-                const colormaptexture = new THREE.DataTexture()
-                colormaptexture.format = THREE.RGBAFormat
-                colormaptexture.type = THREE.FloatType
+            let volume = manager.state.volume
+            let volDims = volume.thumbnailSize
+            let dataBuffer = volume.thumbnail
+            let colormap = manager.state.colorSetting.colormap
+            let renderType = manager.state.volumeRenderType
 
-                // THREE.Mesh
-                const geometry = new THREE.BoxGeometry(volDims[0], volDims[1], volDims[2]);
-                geometry.translate(volDims[0] / 2, volDims[1] / 2, volDims[2] / 2)
+            //初始化紋理
+            const datatexture = new THREE.DataTexture3D(dataBuffer, volDims[0], volDims[1], volDims[2]);
 
-                // Material
-                const shader = VolumeRenderShader1;
-                const uniforms = THREE.UniformsUtils.clone(shader.uniforms);
-
-                uniforms["u_data"].value = datatexture;
-                uniforms["u_size"].value.set(volDims[0], volDims[1], volDims[2]);
-                uniforms["u_clim"].value.set(0, 1);
-                uniforms["u_renderstyle"].value = this.renderType;
-                uniforms["u_cmdata"].value = colormaptexture;
-                uniforms["u_filter"].value = filtertexture
-                uniforms['u_sizeData'].value = sizetextures
-
-                //設定材質
-                const material = new THREE.ShaderMaterial({
-                    uniforms: uniforms,
-                    vertexShader: shader.vertexShader,
-                    fragmentShader: shader.fragmentShader,
-                    transparent: true,
-                    side: THREE.BackSide // The volume shader uses the backface as its "reference point"
-                });
-
-                model = new THREE.Mesh(geometry, material);
-                model.scale.set(
-                    -model_unit / max * spacing[0],
-                    model_unit / max * spacing[1],
-                    model_unit / max * spacing[2])
-
-                model.position.set(
-                    volDims[0] * model_unit / max * spacing[0] / 2,
-                    -volDims[1] * model_unit / max * spacing[1] / 2,
-                    -volDims[2] * model_unit / max * spacing[2] / 2)
-
-                let m = new THREE.Matrix4().identity()
-                m.makeRotationX(-Math.PI / 2)
-                model.applyMatrix4(m)
-                m.makeRotationZ(Math.PI)
-                model.applyMatrix4(m)
-
-                this.scene.add(model)
-            }
-
-            //更新紋理
-            let datatexture = model.material.uniforms["u_data"].value;
-            if (dataBuffer == null) {
-                datatexture.image.data = new Uint8Array(1).fill(255)
-                datatexture.image.width = 1
-                datatexture.image.height = 1
-                datatexture.image.depth = 1
-            }
-            else {
-                datatexture.image.data = dataBuffer
-                datatexture.image.width = volDims[0];
-                datatexture.image.height = volDims[1];
-                datatexture.image.depth = volDims[2];
-            }
+            datatexture.format = THREE.RedFormat;
+            datatexture.type = THREE.UnsignedByteType;
+            datatexture.minFilter = THREE.LinearFilter;
+            datatexture.magFilter = THREE.LinearFilter;
             datatexture.needsUpdate = true;
 
-            let sizetextures = model.material.uniforms["u_sizeData"].value;
-            if (sizeData == null) {
-                sizetextures.image.data = new Uint8Array(1).fill(255)
-                sizetextures.image.width = 1
-                sizetextures.image.height = 1
-                sizetextures.image.depth = 1
-            }
-            else {
-                sizetextures.image.data = sizeData
-                sizetextures.image.width = volDims[0];
-                sizetextures.image.height = volDims[1];
-                sizetextures.image.depth = volDims[2];
-            }
-            sizetextures.needsUpdate = true;
-
-            let filtertexture = model.material.uniforms["u_filter"].value;
-            if (filterBuffer == null) {
-                filtertexture.image.data = new Uint8Array(1).fill(255)
-                filtertexture.image.width = 1
-                filtertexture.image.height = 1
-                filtertexture.image.depth = 1
-            }
-            else {
-                filtertexture.image.data = filterBuffer
-                filtertexture.image.width = volDims[0];
-                filtertexture.image.height = volDims[1];
-                filtertexture.image.depth = volDims[2];
-            }
-            filtertexture.needsUpdate = true;
-
-            let colormaptexture = model.material.uniforms["u_cmdata"].value;
-            colormaptexture.image.data = this.colormap;
-            colormaptexture.image.width = 256
-            colormaptexture.image.height = 1
+            const colormaptexture = new THREE.DataTexture(colormap, 256, 1)
+            colormaptexture.format = THREE.RGBAFormat
+            colormaptexture.type = THREE.FloatType
             colormaptexture.needsUpdate = true;
 
-            model.material.uniforms["u_size"].value.set(volDims[0], volDims[1], volDims[2]);
-            model.material.uniforms["u_renderstyle"].value = this.renderType;
-            model.material.uniformsNeedUpdate = true
+            // THREE.Mesh
+            const geometry = new THREE.BoxGeometry(volDims[0], volDims[1], volDims[2]);
+            geometry.translate(volDims[0] / 2, volDims[1] / 2, volDims[2] / 2)
 
+            // Material
+            const shader = VolumeRenderShader_mip;
+            const uniforms = THREE.UniformsUtils.clone(shader.uniforms);
+
+            uniforms["u_data"].value = datatexture;
+            uniforms["u_size"].value.set(volDims[0], volDims[1], volDims[2]);
+            uniforms["u_clim"].value.set(0, 1);
+            uniforms["u_renderstyle"].value = 0;
+            uniforms["u_cmdata"].value = colormaptexture;
+
+            //設定材質
+            const material = new THREE.ShaderMaterial({
+                uniforms: uniforms,
+                vertexShader: shader.vertexShader,
+                fragmentShader: shader.fragmentShader,
+                transparent: true,
+                side: THREE.BackSide // The volume shader uses the backface as its "reference point"
+            });
+
+            model.add(new THREE.Mesh(geometry, material))
+
+        }
+
+        let updateVolume = () => {
+            // 當前正在使用的立體影像
+
+            let tfData = manager.state.tfData
+            let colormap = manager.state.colorSetting.colormap
+            let filter = model.children[0]
+            let renderType = manager.state.volumeRenderType
+
+
+            let colormaptexture = filter.material.uniforms["u_cmdata"].value;
+            colormaptexture.image.data = colormap;
+            colormaptexture.needsUpdate = true;
+
+        }
+
+        let initMask = () => {
+
+            let volume = manager.state.volume
+            let volDims = volume.thumbnailSize
+            let dataBuffer = volume.thumbnail
+            let colormap = manager.state.colorSetting.colormap
+            let renderType = manager.state.volumeRenderType
+
+            //初始化紋理
+            const datatexture = new THREE.DataTexture3D(dataBuffer, volDims[0], volDims[1], volDims[2]);
+            const sizetextures = new THREE.DataTexture3D(null, volDims[0], volDims[1], volDims[2]);
+            const filtertexture = new THREE.DataTexture3D(null, volDims[0], volDims[1], volDims[2]);
+
+            datatexture.format = sizetextures.format = filtertexture.format = THREE.RedFormat;
+            datatexture.type = sizetextures.type = filtertexture.type = THREE.UnsignedByteType;
+            datatexture.minFilter = sizetextures.minFilter = filtertexture.minFilter = THREE.LinearFilter;
+            datatexture.magFilter = sizetextures.magFilter = filtertexture.magFilter = THREE.LinearFilter;
+            datatexture.needsUpdate = true;
+
+            const colormaptexture = new THREE.DataTexture(colormap, 256, 1)
+            colormaptexture.format = THREE.RGBAFormat
+            colormaptexture.type = THREE.FloatType
+            colormaptexture.needsUpdate = true;
+
+            // THREE.Mesh
+            const geometry = new THREE.BoxGeometry(volDims[0], volDims[1], volDims[2]);
+            geometry.translate(volDims[0] / 2, volDims[1] / 2, volDims[2] / 2)
+
+            // Material
+            const shader = VolumeRenderShader_iso;
+            const uniforms = THREE.UniformsUtils.clone(shader.uniforms);
+
+            uniforms["u_data"].value = datatexture;
+            uniforms["u_size"].value.set(volDims[0], volDims[1], volDims[2]);
+            uniforms["u_clim"].value.set(0, 1);
+            uniforms["u_renderstyle"].value = this.renderType;
+            uniforms["u_filter"].value = filtertexture;
+            uniforms["u_cmdata"].value = colormaptexture;
+            uniforms['u_sizeData'].value = sizetextures
+
+            //設定材質
+            const material = new THREE.ShaderMaterial({
+                uniforms: uniforms,
+                vertexShader: shader.vertexShader,
+                fragmentShader: shader.fragmentShader,
+                transparent: true,
+                side: THREE.BackSide // The volume shader uses the backface as its "reference point"
+            });
+
+            model.add(new THREE.Mesh(geometry, material))
+        }
+
+        let updateMask = () => {
+            // 當前正在使用的樣板
+            let segment = manager.state.focusedSegment
+            let filterBuffer = null
+
+            if (segment != null) {
+                segment.generateThumbnail()
+                filterBuffer = segment.thumbnail
+            }
+
+            let tfData = manager.state.tfData
+            let colormap = manager.state.colorSetting.colormap
+            let renderType = manager.state.volumeRenderType
+
+            let filter = model.children[1]
+
+            let sizetextures = filter.material.uniforms["u_sizeData"].value;
+            sizetextures.image.data = tfData
+            sizetextures.needsUpdate = true;
+
+            let filtertexture = filter.material.uniforms["u_filter"].value;
+            filtertexture.image.data = filterBuffer
+            filtertexture.needsUpdate = true;
+
+            let colormaptexture = filter.material.uniforms["u_cmdata"].value;
+            colormaptexture.image.data = colormap;
+            colormaptexture.needsUpdate = true;
+
+            filter.material.uniforms["u_renderstyle"].value = this.renderType;
+            filter.material.uniformsNeedUpdate = true
+        }
+
+        this.renderVolume = () => {
+
+            updateVolume()
+            updateMask()
 
             this.renderScene()
         }
@@ -946,7 +940,6 @@ class VolumeViewer {
         let init = () => {
             let width = domElement.clientWidth;
             let height = domElement.clientHeight;
-            let aspect = width / height
 
             this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
             this.renderer.setSize(width, height, false)
@@ -961,15 +954,15 @@ class VolumeViewer {
             this.camera.position.set(10, 10, 10)
             this.camera.lookAt(0, 0, 0)
             this.scene.add(this.camera)
+            this.scene.add(model)
 
             window.addEventListener('resize', () => {
                 width = domElement.clientWidth * 2;
                 height = domElement.clientHeight * 2;
 
-                aspect = width / height
                 setCameraSize(width, height)
 
-                this.renderer.setSize(width, height)
+                this.renderer.setSize(width, height, false)
                 this.renderScene()
             })
 
@@ -977,310 +970,328 @@ class VolumeViewer {
         }
 
         init()
+        initGroup()
+        initVolume()
+        initMask()
     }
 }
 
 // marching cubes 模型生成
 class ModelViewer {
 
-    sceneObject = {
-        scene: null,
-        camera: null,
-        clippingControl: null,
-        windowControl: null,
-        light: {
-            distance: 0,
-            intensity: 0
-        }
-    }
-
-    cardiacObject = {
-        color: '0xFF0000',
-        colorMap: null,
-        volDims: [0, 0, 0],
-        thickness: [1, 1, 1],
-        ratio: -1,
-        geometry: null,
-        polygen: true,
-        wireline: true
-    }
 
     constructor(domElement) {
         if (WEBGL.isWebGL2Available() === false) {
             document.body.appendChild(WEBGL.getWebGL2ErrorMessage());
         }
 
-        this.full = false
         this.domElement = domElement
         this.renderer = null
+        this.scene = null
+        this.camera = null
+        this.clippingGroup = null
+        this.windowControl = null
+        this.lightProfile = {
+            distance: 0,
+            intensity: 0
+        }
+
+        this.color = '0xFF0000'
+        this.volDims = [0, 0, 0]
+        this.thickness = [1, 1, 1]
+        this.renderMode = {
+            polygen: true,
+            wireline: true,
+        }
+        this.smooth = 0.1
         this.marchingCubes = null
-        this.viewContructor()
+
+        this.model = {
+            mesh: null,
+            line: null
+        }
 
         init("pkg/lib_bg.wasm").then(() => {
             this.marchingCubes = MarchingCubes.new()
         });
 
         this._data = null
-    }
 
-    viewContructor() {
+        let initView = () => {
+            // Camera
+            let width = this.domElement.clientWidth;
+            let height = this.domElement.clientHeight;
 
-        // Camera
-        let width = this.domElement.clientWidth;
-        let height = this.domElement.clientHeight;
+            this.camera = new THREE.OrthographicCamera(-width / 2, width / 2, height / 2, -height / 2, 0.01, 2000);
+            this.camera.position.set(800, 800, 800);
+            this.camera.up.set(0, 1, 0);
 
-        let camera = new THREE.OrthographicCamera(-width / 2, width / 2, height / 2, -height / 2, 0.01, 2000);
-        camera.position.set(800, 800, 800);
-        camera.up.set(0, 1, 0);
+            this.scene = new THREE.Scene();
+            this.scene.background = new THREE.Color(0.9, 0.9, 0.9)
 
-        let scene = new THREE.Scene();
-        scene.background = new THREE.Color(0.9, 0.9, 0.9)
+            // Light
+            const light = new THREE.DirectionalLight(0xffffff, 1);
 
-        // Light
-        let directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            this.camera.add(light)
 
-        camera.add(directionalLight)
+            this.scene.add(new THREE.HemisphereLight(0x443333, 0x111122))
+            this.scene.add(this.camera)
 
-        scene.add(new THREE.HemisphereLight(0x443333, 0x111122))
-        scene.add(camera)
-
-        // Renderer
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
-        this.renderer.setSize(width, height, true);
-
-        this.renderer.localClippingEnabled = true
-        this.domElement.appendChild(this.renderer.domElement);
-
-        //axis landmark
-        let axesHelper = new THREE.AxesHelper(800)
-        scene.add(axesHelper)
-
-        // Controller
-        let windowControl = new OrbitControls(camera, this.renderer.domElement)
-        windowControl.target.set(0, 0, 0)
-
-        windowControl.addEventListener('change', () => {
-            this.renderScene()
-        })
-
-        windowControl.enableRotate = true;
-        //windowControl.minZoom = 0;
-        //windowControl.maxZoom = 4;
-        windowControl.update();
-
-
-        this.sceneObject.scene = scene
-        this.sceneObject.camera = camera
-        this.sceneObject.clippingControl = new SlicerControl(scene)
-        this.sceneObject.clippingControl.addPlane()
-        this.sceneObject.clippingControl.addPlane()
-        this.sceneObject.clippingControl.setVisableAll(false)
-        this.sceneObject.windowControl = windowControl
-
-        this.renderScene()
-
-        window.addEventListener('resize', () => {
-            let width = this.domElement.clientWidth
-            let height = this.domElement.clientHeight
+            // Renderer
+            this.renderer = new THREE.WebGLRenderer({ antialias: true });
             this.renderer.setSize(width, height, true);
-            this.sceneObject.camera.left = -width / 2
-            this.sceneObject.camera.right = width / 2
-            this.sceneObject.camera.top = height / 2
-            this.sceneObject.camera.bottom = -height / 2
-            this.sceneObject.camera.updateProjectionMatrix();
+
+            this.renderer.localClippingEnabled = true
+            this.domElement.appendChild(this.renderer.domElement);
+
+            //axis landmark
+            //this.scene.add(new THREE.AxesHelper(800))
+
+            // Controller
+            let windowControl = new OrbitControls(this.camera, this.renderer.domElement)
+            windowControl.target.set(0, 0, 0)
+
+            windowControl.addEventListener('change', () => {
+                this.renderScene()
+            })
+
+            windowControl.enableRotate = true;
+            windowControl.update();
+
+            this.clippingGroup = new SlicerGroup(this.scene, 1)
+            this.clippingGroup.addPlane()
+            this.clippingGroup.addPlane()
+            this.clippingGroup.setVisableAll(true)
+            this.scene.add(this.clippingGroup)
+
+            this.windowControl = windowControl
+
+            window.addEventListener('resize', () => {
+                let width = this.domElement.clientWidth
+                let height = this.domElement.clientHeight
+                this.renderer.setSize(width, height, true);
+                this.camera.left = -width / 2
+                this.camera.right = width / 2
+                this.camera.top = height / 2
+                this.camera.bottom = -height / 2
+                this.camera.updateProjectionMatrix();
+                this.renderScene()
+            });
+
+            this.renderScene = () => {
+
+                if (this.model.mesh != null) {
+                    this.model.mesh.visible = this.renderMode.polygen
+                }
+
+                if (this.model.line != null) {
+                    this.model.line.visible = this.renderMode.wireline
+                }
+
+                light.intensity = this.lightProfile.intensity
+
+                this.renderer.render(this.scene, this.camera);
+            }
+
             this.renderScene()
-        });
-    }
-
-    setModelData(uvdDims, dataBuffer, color, spacing) {
-        //console.log(dataBuffer)
-        //console.log(uvdDims)
-
-        this.cardiacObject.thickness = spacing;
-        this.cardiacObject.volDims = uvdDims;
-        this.cardiacObject.color = color
-
-        let padding = 5
-
-        let p2 = 2 * padding
-        let pDims = [uvdDims[0] + p2, uvdDims[1] + p2, uvdDims[2] + p2]
-        let pSize = pDims[0] * pDims[1] * pDims[2];
-
-        if (this._data == null || this._data.length != pSize) {
-            this._data = new BinaryArray(pSize);
         }
 
-        this._data.clear();
+        let camerActions = {
+            'TOP': () => {
+                this.camera.position.set(0, 800, 0);
+                this.camera.up.set(0, 1, 0);
+                this.camera.lookAt(0, 0, 0);
+            },
+            'FRONT': () => {
+                this.camera.position.set(0, 0, 800);
+                this.camera.up.set(0, 1, 0);
+                this.camera.lookAt(0, 0, 0);
 
-        //padding
-        let counter = 0;
-        let phSize = [uvdDims[0] + padding, uvdDims[1] + padding, uvdDims[2] + padding]
-        for (let i = phSize[2] - 1; i >= padding; i--) {
-            let step_i = i * pDims[1] * pDims[0];
-            for (let j = padding; j < phSize[1]; j++) {
-                let step_j = step_i + j * pDims[0];
-                for (let k = padding; k < phSize[0]; k++) {
-                    let step_k = step_j + k;
-                    this._data.setValue(dataBuffer.getBit(counter++), step_k);
+            },
+            'RIGHT': () => {
+                this.camera.position.set(800, 0, 0);
+                this.camera.up.set(0, 1, 0);
+                this.camera.lookAt(0, 0, 0);
+            },
+            'BOTTOM': () => {
+                this.camera.position.set(0, -800, 0);
+                this.camera.up.set(0, 1, 0);
+                this.camera.lookAt(0, 0, 0);
+            },
+            'BACK': () => {
+                this.camera.position.set(0, 0, -800);
+                this.camera.up.set(0, 1, 0);
+                this.camera.lookAt(0, 0, 0);
+            },
+            'LEFT': () => {
+                this.camera.position.set(-800, 0, 0);
+                this.camera.up.set(0, 1, 0);
+                this.camera.lookAt(0, 0, 0);
+            }
+        }
+
+        this.setOrientation = (index) => {
+
+            if (camerActions[index] instanceof Function) {
+                camerActions[index]()
+
+                this.camera.updateProjectionMatrix()
+                this.windowControl.update()
+                this.renderScene()
+            }
+
+        }
+
+        this.setModelData = (uvdDims, volume, mask, color, spacing) => {
+
+            this.thickness = spacing;
+            this.volDims = uvdDims;
+            this.color = color
+
+            let padding = 5
+
+            let p2 = 2 * padding
+            let pDims = [uvdDims[0] + p2, uvdDims[1] + p2, uvdDims[2] + p2]
+            let pSize = pDims[0] * pDims[1] * pDims[2];
+
+            if (this._data == null || this._data.length != pSize) {
+                this._data = new BinaryArray(pSize);
+            }
+
+            this._data.clear();
+
+            //padding
+            let counter = 0;
+            let phSize = [uvdDims[0] + padding, uvdDims[1] + padding, uvdDims[2] + padding]
+            for (let i = phSize[2] - 1; i >= padding; i--) {
+                let step_i = i * pDims[1] * pDims[0];
+                for (let j = padding; j < phSize[1]; j++) {
+                    let step_j = step_i + j * pDims[0];
+                    for (let k = padding; k < phSize[0]; k++) {
+                        let step_k = step_j + k;
+                        this._data.setValue(mask.getBit(counter++), step_k);
+                    }
                 }
             }
+
+            //console.log(counter)
+            this.marchingCubes.set_volume(volume.data, mask.data, uvdDims[0], uvdDims[1], uvdDims[2]);
+
+            let xyzDims = [pDims[0], pDims[2], pDims[1]]
+            this.setClippingDim(xyzDims)
         }
 
-        //console.log(counter)
-        this.marchingCubes.set_volume(this._data.data, pDims[0], pDims[1], pDims[2]);
-
-        let xyzDims = [pDims[0], pDims[2], pDims[1]]
-        this.setClippingDim(xyzDims)
-        this.setClippingRatio(axisXY, 0)
-        this.setClippingRatio(axisXZ, 0)
-        this.setClippingRatio(axisYZ, 0)
-    }
-
-    modelUpdate(evt, callback) {
-        if (this.lock) {
-            return
-        }
-
-        this.lock = true
-        let scene = this.sceneObject.scene
-        let color = this.cardiacObject.color
-        //output two render result
-
-        this.renderMeshAsync(1, "cardiac_mesh", scene, color).then(() => {
-            let mesh = scene.getObjectByName("cardiac_mesh").children[0]
-            let line = scene.getObjectByName("cardiac_mesh").children[1]
-
-            this.cardiacObject.geometry = mesh.geometry
-            this.sceneObject.clippingControl.addObject(mesh)
-            this.sceneObject.clippingControl.addObject(line)
-            this.sceneObject.clippingControl.updateAll()
-
-            this.updateMeshState()
-            this.renderScene()
-
-            if (callback != null && callback instanceof Function) {
-                callback()
+        this.modelUpdate = (evt, callback) => {
+            if (this.lock) {
+                return
             }
-            this.lock = false
-        });
 
-    }
+            this.lock = true
+            //output two render result
 
-    setDistance(distance) {
-        this.cardiacObject.distance = distance
-    }
+            this.renderMeshAsync(1, this.color, this.smooth).then(() => {
 
-    setLightProfile(profit, update = true) {
-        this.sceneObject.light = profit
-        if (update) {
-            this.updateLight()
-        }
-    }
+                this.renderScene()
 
-    setQuality(value) {
-        this.cardiacObject.quality = Number(value)
-        this.updateLight()
-    }
+                if (callback != null && callback instanceof Function) {
+                    callback()
+                }
+                this.lock = false
+            });
 
-    setMeshVisible(option) {
-        let mesh = this.sceneObject.scene.getObjectByName("cardiac_mesh")
-        mesh.visible = option
-        this.renderScene()
-    }
-
-    setRenderMode(option, enabled) {
-        if (option == 'wireline') {
-            this.cardiacObject.wireline = enabled
-        } else if (option == 'polygen') {
-            this.cardiacObject.polygen = enabled
         }
 
-        this.updateMeshState()
-        this.renderScene()
+        initView()
     }
 
-    getLightProfit() {
-        return this.sceneObject.light
-    }
-
-    updateLight() {
-        let profit = this.sceneObject.light
-        let light = this.sceneObject.camera.children[0]
-        light.intensity = profit.intensity
-        this.renderScene()
-    }
-
-    updateMeshState = () => {
-        let mesh = this.sceneObject.scene.getObjectByName("cardiac_mesh")
-
-        if (mesh == null) {
+    copyCamera = (c) => {
+        if (!(c instanceof THREE.Camera))
             return
-        }
 
-        mesh.children[0].visible = this.cardiacObject.polygen
-        mesh.children[1].visible = this.cardiacObject.wireline
+        let zoom = this.camera.zoom
+        this.camera.copy(c, false)
+        this.camera.zoom = zoom
+        let width = this.domElement.clientWidth;
+        let height = this.domElement.clientHeight;
+        setCameraSize(width, height)
     }
 
-    //切片控制器參數設置
-    setClippingMesh(mesh) {
-        this.sceneObject.clippingControl.addObject(mesh)
-        this.renderScene();
-    }
+    modelUpdateRemote = () => {
 
-    setClippingDim(xyzDims) {
-        this.sceneObject.clippingControl.resize([
-            xyzDims[0] * this.cardiacObject.thickness[0],
-            xyzDims[1] * this.cardiacObject.thickness[1],
-            xyzDims[2] * this.cardiacObject.thickness[2],
-        ], 1, true)
-
-        this.sceneObject.clippingControl.reset()
-        this.renderScene();
-    }
-
-    setClippingRatio(type, ratio, group) {
-        this.sceneObject.clippingControl.setIndexRatio(type, ratio, group)
-        this.renderScene();
-    }
-
-    setClippingEnable(axis, option) {
-        this.sceneObject.clippingControl.setClipping(axis, option)
-        this.renderScene()
-    }
-
-    getClippingPlaneIndex() {
-        return this.sceneObject.clippingControl.getClippingPlaneIndex() * 10
-    }
-
-    get mesh() {
-        return this.sceneObject.scene.getObjectByName('cardiac_mesh')
-    }
-
-    get vertices() {
-        return this.sceneObject.scene.getObjectByName('cardiac_mesh').geometry.vertices
-    }
-
-    renderScene() {
-        this.renderer.render(this.sceneObject.scene, this.sceneObject.camera);
-    }
-
-    renderMeshAsync = (ratio, id, scene, color) => {
-        let _this = this
-        return new Promise(
-            function (resolve, reject) {
-                _this.renderMesh(ratio, id, scene, color)
-                resolve()
-            }
-        )
-    }
-
-    renderMeshRemote = () => {
+        this._data
+        let blob = new Blob([this._data, this.volDims], { type: 'octet/stream' })
         let xhr = new XMLHttpRequest()
         xhr.onreadystatechange = () => {
 
         }
-        xhr.open('GET', '')
+
+        xhr.type = 'blob'
+        xhr.open('GET', window.location.href + 'modifier/function/marchingCubes')
         xhr.send()
+    }
+
+    //切片控制器參數設置
+
+    setClippingDim(xyzDims) {
+        this.clippingGroup.resize(null, 1, true)
+        this.renderScene();
+    }
+
+    setClippingRatio(type, ratio, group) {
+        this.clippingGroup.setIndexRatio(type, ratio, group)
+        this.renderScene();
+    }
+
+    setClippingEnable(axis, option) {
+        this.clippingGroup.setClipping(axis, option)
+        this.renderScene()
+    }
+
+    getClippingPlaneIndex() {
+        return this.clippingGroup.getClippingPlaneIndex() * 10
+    }
+
+    renderMeshAsync = (ratio, color, smooth) => {
+        return new Promise(
+            (resolve, reject) => {
+
+                let vertice = this.marchingCubes.marching_cubes(ratio);
+                let geometry = new THREE.BufferGeometry();
+
+                geometry.setAttribute('position', new THREE.BufferAttribute(vertice, 3));
+                geometry = mergeVertices(geometry, smooth)
+                geometry.rotateX(Math.PI / 2)
+                geometry.computeVertexNormals()
+                geometry.center()
+
+                let wireframe = new THREE.WireframeGeometry(geometry);
+
+                if (this.model.mesh == null) {
+                    let material = new THREE.MeshPhongMaterial({ color: color, side: THREE.DoubleSide });
+
+
+                    //生成模型表面
+                    this.model.mesh = new THREE.Mesh(geometry, material);
+                    this.model.mesh.scale.set(...this.thickness)
+                    this.clippingGroup.add(this.model.mesh)
+
+                    //生成模型網格
+                    this.model.line = new THREE.LineSegments(wireframe);
+                    this.model.line.material.opacity = 0.6;
+                    this.model.line.material.transparent = true;
+                    this.model.line.scale.set(...this.thickness)
+                    this.clippingGroup.add(this.model.line)
+
+                } else {
+                    this.model.mesh.geometry = geometry
+                    this.model.mesh.scale.set(...this.thickness)
+                    this.model.line.geometry = wireframe
+                    this.model.line.scale.set(...this.thickness)
+                }
+
+                resolve()
+            }
+        )
     }
 
     textures = [
@@ -1288,101 +1299,14 @@ class ModelViewer {
         new THREE.MeshNormalMaterial({ side: THREE.DoubleSide })
     ]
 
-    renderThreeJSMesh = (xyzDims, ratio, id, scene, color) => {
-        let size = Math.max(...xyzDims)
-        let process = (mesh) => {
-
-            let iStep, jStep, counter = 0
-            for (let i = 0; i < xyzDims[2]; i++) {
-                iStep = i * size * size
-                for (let j = 0; j < xyzDims[1]; j++) {
-                    jStep = j * size
-                    for (let k = 0; k < xyzDims[0]; k++) {
-                        mesh.field[iStep + jStep + k] = this._data.getBit(counter++);
-                    }
-                }
-            }
-        }
-
-        let thickness = this.cardiacObject.thickness
-
-        let group = scene.getObjectByName(id)
-        if (group == null) {
-            group = new THREE.Group()
-            group.name = id
-
-            let mesh = new mc.MarchingCubes(size);
-            mesh.name = 'polygen'
-            mesh.material = this.textures[0];
-            mesh.isolation = 0;
-            process(mesh);
-            mesh.scale.set(...thickness)
-            //mesh.scale.set(1/size,1/size,1/size)
-            group.add(mesh)
-            console.log(mesh, size)
-            group.name = 'cardiac_mesh'
-            group.position.set(0, 0.5 * size, 0)
-
-            scene.add(group)
-        } else {
-            group.children[0].init(size);
-            process(mesh);
-        }
-    }
-
-    renderMesh = function (ratio, id, scene, color) {
-
-        let vertice = this.marchingCubes.marching_cubes(ratio);
-        let geometry = new THREE.BufferGeometry();
-
-        geometry.setAttribute('position', new THREE.BufferAttribute(vertice, 3));
-        geometry = mergeVertices(geometry)
-        geometry.rotateX(-Math.PI / 2)
-        geometry.computeVertexNormals()
-
-        const material = new THREE.MeshPhongMaterial({ color: color, side: THREE.DoubleSide });
-        const wireframe = new THREE.WireframeGeometry(geometry);
-
-        // group[0]: mesh
-        // group[1]: line
-        let thickness = this.cardiacObject.thickness
-        let group = scene.getObjectByName(id)
-        if (group == null) {
-            group = new THREE.Group()
-            group.name = id
-
-            let mesh = new THREE.Mesh(geometry, material);
-            mesh.name = 'polygen'
-            mesh.scale.set(...thickness)
-            group.add(mesh)
-
-            let line = new THREE.LineSegments(wireframe);
-            //line.material.depthTest = false;
-            line.material.opacity = 0.6;
-            line.material.transparent = true;
-            line.name = 'wireframe'
-            line.scale.set(...thickness)
-            group.add(line)
-
-            group.name = 'cardiac_mesh'
-
-            scene.add(group)
-        } else {
-            group.children[0].geometry = geometry
-            group.children[0].scale.set(...thickness)
-            group.children[1].geometry = wireframe
-            group.children[1].scale.set(...thickness)
-        }
-        //console.log(thickness)
-    }
 }
 
 class BodyViewer {
 
-    constructor(domElement) {
+    constructor(manager, domElement) {
         this.scene = null
         this.camera = null
-        this.clippingControl = null
+        this.clippingGroup = null
         this.renderer = null
         this.domElement = domElement
         this.effect = null;
@@ -1417,7 +1341,6 @@ class BodyViewer {
         }
 
         // 初始模型載入
-                // 初始模型載入
         let loadModel = () => {
 
             // 載入心臟模型
@@ -1433,7 +1356,7 @@ class BodyViewer {
                 let scaleZ = model_unit / (max.z - min.z);
 
                 geometry.scale(scaleX, scaleY, scaleZ);
-                geometry.translate(0, 0, -0.1)
+                //geometry.translate(0, 0, -0.1)
 
                 const material = new THREE.MeshToonMaterial({
                     //depthWrite: false,
@@ -1458,9 +1381,6 @@ class BodyViewer {
                 model.cardiac.add(new THREE.Mesh(geometry, material));
                 //model[0].renderOrder = 2
                 model.cardiac.add(new THREE.Mesh(geometry, material2));
-                //model[0].visible = false;
-
-                this.scene.add(model.cardiac);
 
                 // Clipping Control
                 this.addClippingMesh(model.cardiac.children[0]);
@@ -1471,7 +1391,7 @@ class BodyViewer {
             // 載入人物模型
             loader.load('model/mmd/kizunaai/kizunaai.pmx', (mesh) => {
                 mesh.position.set(0, -2.8, -0.4);
-                mesh.scale.set(0.6,0.6,0.6)
+                mesh.scale.set(0.6, 0.6, 0.6)
                 mesh.geometry.center();
 
                 let materials = mesh.material;
@@ -1482,15 +1402,15 @@ class BodyViewer {
                 //materials[4].transparent = true;
                 //materials[4].opacity = 0.4;
 
-                
-                for (let i = 0; i < materials.length; i++) {
-                    materials[4] = new THREE.MeshToonMaterial()
-                    materials[4].side = THREE.FrontSide
-                    materials[4].depthWrite = false;
-                    materials[4].depthTest = false;
-                    materials[4].transparent = true;
-                    materials[4].opacity = 0.4;
-                }
+
+                materials[4] = new THREE.MeshToonMaterial()
+                materials[4].side = THREE.FrontSide
+                console.log(materials[4].color)
+                materials[4].color.set(0, 0, 0);
+                materials[4].depthWrite = false;
+                materials[4].depthTest = false;
+                materials[4].transparent = true;
+                materials[4].opacity = 0.2;
 
                 /*此處使用的PMXLoader是客製化的版本
                 原版(ThreeJS)採用非同步的方式載入檔案，然而load function在僅有模型文件、貼圖尚在讀取狀態時便貿然執行，
@@ -1577,6 +1497,21 @@ class BodyViewer {
             //directionalLight.position.set(- 1, 1, 1).normalize();
             this.camera.add(directionalLight);
 
+
+            let createBackground = () => {
+                let material = new THREE.MeshBasicMaterial()
+                //material.depthWrite = false;
+                material.transparent = true;
+                material.opacity = 0.4;
+                material.side = THREE.DoubleSide
+
+                let geometry = new THREE.BoxGeometry(width, height, 2)
+
+                const background = new THREE.Mesh(geometry, material)
+                //this.camera.add(background)
+            }
+
+
             // Renderer
             this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             this.renderer.localClippingEnabled = true
@@ -1594,13 +1529,15 @@ class BodyViewer {
             });
 
             // Clipping Control
-            this.clippingControl = new SlicerControl(this.scene, 1);
-            this.clippingControl.addPlane();
-            this.clippingControl.resize([1, 1, 1], 0, [false, false, false])
+            this.clippingGroup = new SlicerGroup(this.scene, 0);
+            this.clippingGroup.addPlane();
+            this.clippingGroup.resize([1, 1, 1], 0, [false, false, false])
+
+            this.scene.add(this.clippingGroup)
 
             // Render
             loadModel();
-
+            createBackground()
             //this.renderScene()
         }
 
@@ -1611,9 +1548,9 @@ class BodyViewer {
     setOnFocus(axis) {
         for (let i = 0; i < 3; i++) {
             if (i == axis) {
-                this.clippingControl.onFocus(i, true)
+                this.clippingGroup.onFocus(i, true)
             } else {
-                this.clippingControl.onFocus(i, false)
+                this.clippingGroup.onFocus(i, false)
             }
         }
 
@@ -1623,7 +1560,7 @@ class BodyViewer {
     // 關閉所有顯示的clipping plane
     setNonFocus() {
         for (let i = 0; i < 3; i++) {
-            this.clippingControl.onFocus(i, false)
+            this.clippingGroup.onFocus(i, false)
         }
 
         this.renderScene();
@@ -1631,33 +1568,28 @@ class BodyViewer {
 
     // 將需要切片的模型加入切片控制器
     addClippingMesh(mesh) {
-        this.clippingControl.addObject(mesh)
+        this.clippingGroup.add(mesh)
         this.renderScene();
     }
 
     // 設置切片控制器需要裁切的尺寸
     setClippingDim(dims) {
         let nDims = [dims[0] / dims[2], dims[1] / dims[2], 1]
-        this.clippingControl.thickness = this.thickness
-        this.clippingControl.resize(nDims, 0, false)
-        this.clippingControl.reset()
+        this.clippingGroup.thickness = this.thickness
+        this.clippingGroup.resize(nDims, 0, false)
+        this.clippingGroup.reset()
         this.renderScene();
     }
 
     // 設置切片控制器當前裁切的方向與裁切位置(比例)
     setClippingRatio(type, ratio) {
-        this.clippingControl.setIndexRatio(type, ratio)
+        this.clippingGroup.setIndexRatio(type, ratio)
         this.renderScene();
-    }
-
-    // 設置切片控制器當前裁切的方向與裁切位置(座標)
-    getClippingPlaneIndex() {
-        return this.clippingControl.getClippingPlaneIndex() * 10
     }
 
     // 設置切片控制器是否啟用
     setClippingPlaneEnablesd(option) {
-        this.clippingControl.setClippingeAll(option)
+        this.clippingGroup.setClippingeAll(option)
     }
 
     // 渲染場景中的物件
@@ -1668,85 +1600,16 @@ class BodyViewer {
 
 class ModelControl {
     constructor(manager) {
+        this.remote = false
         let dcmVolume = document.getElementById("dcmViewer");
         this.modelViewer = new ModelViewer(dcmVolume)
 
         //let dcmBody = document.getElementById("dcmBody");
         //this.subrenderer = new BodyViewer(dcmBody);
 
-        let initFOV = () => {
-            let directionCube = document.getElementsByClassName('cube')[0]
-            let faces = directionCube.getElementsByClassName('cubeFace')
-            let camera_radius = 800
-            let wControl = this.modelViewer.sceneObject.windowControl
-            for (let i = 0; i < faces.length; i++) {
-
-                let process = (order) => {
-                    let pos = new Array(3).fill(0)
-                    switch (order) {
-                        case 'TOP':
-                            pos[1] = camera_radius
-                            break
-                        case 'BOTTOM':
-                            pos[1] = -camera_radius
-                            break
-                        case 'LEFT':
-                            pos[0] = -camera_radius
-                            break
-                        case 'RIGHT':
-                            pos[0] = camera_radius
-                            break
-                        case 'FRONT':
-                            pos[2] = camera_radius
-                            break
-                        case 'BACK':
-                            pos[2] = -camera_radius
-                            break
-                        default:
-                            console.error('Incorrect parameters')
-                            break
-                    }
-
-                    wControl.object.position.set(...pos)
-                }
-
-                faces[i].addEventListener('click', () => {
-                    let order = faces[i].dataset['order']
-                    process(order)
-                    wControl.update()
-                })
-
-            }
-
-            let process = (evt) => {
-                let mPosition = this.modelViewer.sceneObject.camera.position
-
-                let pos = mPosition.clone().normalize().multiplyScalar(8)
-                //this.subrenderer.camera.position.set(pos.x, pos.y, pos.z)
-                //this.subrenderer.camera.lookAt(0, 0, 0)
-                //this.subrenderer.renderScene()
-
-                let target = wControl.target
-                let eyePos = wControl.object.position
-
-                let m = new THREE.Matrix4().identity()
-                m.lookAt(eyePos, target, new THREE.Vector3(0, 1, 0))
-
-                let q = new THREE.Quaternion()
-                q.setFromRotationMatrix(m)
-
-                directionCube.style.transform = `rotate3d(${q.x}, ${-q.y}, ${q.z}, ${Math.acos(q.w) * 2}rad)`
-            }
-
-            wControl.addEventListener('change', (evt) => {
-                process()
-            })
-
-            process()
-        }
-
         this.calculate = () => {
             let segment = manager.state.focusedSegment
+            let volume = manager.state.volume
 
             if (segment == null) {
                 alert('No segment selected or create.')
@@ -1758,11 +1621,15 @@ class ModelControl {
             let color = segment.color
             let spacing = manager.state.info.spacing
 
-            this.modelViewer.setModelData(dims, data, color, [spacing[0], spacing[2], spacing[1]])
-            this.modelViewer.modelUpdate()
-        }
+            if (this.remote) {
 
-        initFOV()
+            }
+            else {
+                this.modelViewer.setModelData(dims, volume, data, color, [spacing[0], spacing[2], spacing[1]])
+                this.modelViewer.modelUpdate()
+            }
+
+        }
 
     }
 
@@ -1772,18 +1639,33 @@ class DcmController {
 
     constructor(manager) {
 
-        let dimView = new DimensionView(manager)
-        let volume = new VolumeViewer(document.getElementById('volumeView').querySelector('.viewport'))
-        let body = new BodyViewer(document.getElementById('idolView').querySelector('.viewport'))
-        let cadViews = new Array()
+        let dimDOM = [
+            document.getElementById('horizontalView'),
+            document.getElementById('coronalView'),
+            document.getElementById('sagittalView')
+        ]
 
+        let volumeDOM = document.getElementById('volumeView').querySelector('.viewport')
+        let bodyDOM = document.getElementById('idolView').querySelector('.viewport')
+
+        let dimView = new DimensionView(manager, dimDOM)
+        let volume = new VolumeViewer(manager, volumeDOM)
+        let body = new BodyViewer(manager, bodyDOM)
+
+        this.subControllers = {
+            MultiDimensions: dimView,
+            VolumeRender: volume,
+            BodyPerspective: body
+        }
+
+        let cadViews = new Array()
         document.querySelectorAll('.axis-plane3D').forEach((element) => {
             cadViews.push(new CADViewer(element))
         })
 
-        let layouts = document.querySelectorAll(".viewer-layout")
+        let layouts = document.querySelectorAll(".imgContainer")
 
-        let funcbar = document.querySelectorAll(".viewer-layout > .viewer-bar")
+        let funcbar = document.querySelectorAll(".imgContainer .viewer-bar")
 
         this.domElement = document.getElementById('workingScene')
 
@@ -1808,8 +1690,9 @@ class DcmController {
 
         this.scrollto = (axis, index) => {
             dimView.scrollto(axis, index)
-            //cadView.setClippingRatio(axis, index)
-            body.setClippingRatio(axis, index)
+
+            let ratio = dimView.Index2Ratio(axis, index)
+            body.setClippingRatio(axis, ratio)
         }
 
         // axis == null: 更新所有方向的CT影像
@@ -1824,32 +1707,7 @@ class DcmController {
         }
 
         this.updateVolume = () => {
-            let state = manager.state
-
-            let base = state.baseSegment
-
-            // 檢查CT是否正確載入
-            if (base == null) {
-                return
-            }
-
-            // 當前正在使用的樣板
-            let segment = state.focusedSegment
-            let filterData = null
-
-            // 以縮圖的形式載入樣板資料
-            if (segment != null && segment.visible) {
-                segment.generateThumbnail()
-                filterData = segment.thumbnail
-            }
-
-            // transfer function 二維資料
-            let tfData = state.transferData
-
-            volume.colormap = state.colorSetting.colormap
-            volume.renderType = state.volumeType
-
-            volume.renderVolume(base.thumbnailSize, base.thumbnail, state.info.spacing, filterData, tfData.thumbnail)
+            volume.renderVolume()
         }
 
         this.updateData = () => {
@@ -1861,18 +1719,67 @@ class DcmController {
             sizeControl: {
                 enable: true,
                 imgsrc: 'img/svg/maximun.svg',
-                icon: "fa-solid fa-up-right-and-down-left-from-center",
-                process: (e, arg, layout) => {
-                    if (layout.dataset.toggle == 'on') {
-                        layout.classList.remove('centerViewer')
-                        layout.dataset.toggle = 'off'
-                        //e.srcElement.classList.remove('rotate180')
-                        //e.srcElement.classList.add('rotate0')
-                    } else {
-                        layout.classList.add('centerViewer')
-                        layout.dataset.toggle = 'on'
-                        //e.srcElement.classList.remove('rotate0')
-                        //e.srcElement.classList.add('rotate180')
+                icon: "fa-solid fa-expand",
+                process: (e, arg, layout, btn) => {
+
+                    if (arg.level == 0) {
+                        layout.classList.add('container_2x2')
+                        layout.classList.add('container_lefttop')
+                        layout.classList.add('container_topLayer')
+                    }
+                    else if (arg.level == 1) {
+                        layout.classList.remove('container_2x2')
+                        layout.classList.add('container_3x3')
+                    }
+                    else if (arg.level == 2) {
+                        layout.classList.remove('container_3x3')
+                        layout.classList.remove('container_lefttop')
+                        layout.classList.remove('container_topLayer')
+                    }
+
+                    arg.level = (arg.level + 1) % 3
+
+                    setTimeout(() => {
+                        window.dispatchEvent(resizeEvent)
+                    }, 500)
+                }
+            },
+            largerSize: {
+                enable: true,
+                imgsrc: 'img/svg/maximun.svg',
+                icon: "fa-solid fa-expand",
+                process: (e, arg, layout, btn) => {
+
+                    if (arg.level == 0) {
+                        layout.classList.add('container_2x2')
+                        layout.classList.add('container_lefttop')
+                        layout.classList.add('container_topLayer')
+                        arg.level = 1
+                    }
+                    else if (arg.level == 1) {
+                        layout.classList.add('container_3x3')
+                        arg.level = 2
+                    }
+
+                    setTimeout(() => {
+                        window.dispatchEvent(resizeEvent)
+                    }, 500)
+                }
+            },
+            smallerSize: {
+                enable: true,
+                imgsrc: 'img/svg/maximun.svg',
+                icon: "fa-solid fa-compress",
+                process: (e, arg, layout, btn) => {
+                    if (arg.level == 2) {
+                        layout.classList.remove('container_3x3')
+                        arg.level = 1
+                    }
+                    else if (arg.level == 1) {
+                        layout.classList.remove('container_2x2')
+                        layout.classList.remove('container_lefttop')
+                        layout.classList.remove('container_topLayer')
+                        arg.level = 0
                     }
 
                     setTimeout(() => {
@@ -2007,6 +1914,40 @@ class DcmController {
                     manager.notify();
                 }
             },
+            enableTooth: {
+                enable: true,
+                imgsrc: 'img/svg/contrastDec.svg',
+                icon: 'fa-solid fa-tooth',
+                process: (e, arg, layout) => {
+                    if (layout.dataset.toggle == 'off') {
+                        //body.enableModel(0, true);
+                        //layout.dataset.toggle = 'true'
+                    }
+                    else {
+                        //body.enableModel(0, false);
+                        //layout.dataset.toggle = 'off'
+                    }
+
+                    manager.notify();
+                }
+            },
+            enableBrain: {
+                enable: true,
+                imgsrc: 'img/svg/contrastDec.svg',
+                icon: 'fa-solid fa-brain',
+                process: (e, arg, layout) => {
+                    if (layout.dataset.toggle == 'off') {
+                        //body.enableModel(0, true);
+                        //layout.dataset.toggle = 'true'
+                    }
+                    else {
+                        //body.enableModel(0, false);
+                        //layout.dataset.toggle = 'off'
+                    }
+
+                    manager.notify();
+                }
+            },
             enableBody: {
                 enable: true,
                 imgsrc: 'img/svg/contrastDec.svg',
@@ -2076,7 +2017,7 @@ class DcmController {
 
                     btn.appendChild(img)
                     btn.onclick = (e) => {
-                        bfunc.process(e, arg, layout)
+                        bfunc.process(e, arg, layout, btn)
                     }
 
                     btn.classList.add('barfunc')
@@ -2093,22 +2034,7 @@ class DcmController {
                 funcbar[index].appendChild(divider)
             }
 
-            //prevent screen from scrolling while dcm viewers scroll 
-            let stopWindowScroll = {
-                enable: false,
-                func: (e) => {
-                    if (stopWindowScroll.enable)
-                        e.preventDefault()
-                }
-            }
-
-            let passiveSupport = checkPassiveSupported(false)
-            window.addEventListener('DOMMouseScroll', stopWindowScroll.func, false)
-            window.addEventListener('wheel', stopWindowScroll.func, passiveSupport)
-            window.addEventListener('touchmove', stopWindowScroll.func, passiveSupport)
-
             let mark = 0
-            let onFocusedView = -1
             layouts.forEach((layout, key) => {
 
                 // these tools inside the function bar used to justify the images information
@@ -2129,27 +2055,26 @@ class DcmController {
                             newValue--
                         }
 
-                        slider.value = dimView.Index2Ratio(index, newValue)
+                        //slider.value = dimView.Index2Ratio(index, newValue)
                         this.scrollto(index, Number(slider.value))
                     }
 
                     layout.addEventListener('mouseenter', () => {
-                        stopWindowScroll.enable = true
+                        //stopWindowScroll.enable = true
                         body.setOnFocus(index)
                         window.addEventListener('keydown', keyPressEvt)
                     })
 
                     layout.addEventListener('mouseleave', () => {
-                        stopWindowScroll.enable = false
+                        //stopWindowScroll.enable = false
                         body.setNonFocus()
                         window.removeEventListener('keydown', keyPressEvt)
                     })
 
                     layout.addEventListener('wheel', (e) => {
-                        let distance = Number(slider.step) * e.deltaY
-                        slider.value = Number(slider.value) + distance
+                        slider.value = Number(slider.value) + e.deltaY / 200
 
-                        this.scrollto(index, Number(slider.value))
+                        this.scrollto(index, parseInt(slider.value))
                     }, checkPassiveSupported(true))
 
                     slider.addEventListener('input', () => {
@@ -2158,7 +2083,7 @@ class DcmController {
 
                     const btnFuns = {
                         main: [
-                            funcbtns.sizeControl,
+                            funcbtns.sizeControl
                         ],
                         sub: [
                             funcbtns.hideInfo
@@ -2166,7 +2091,8 @@ class DcmController {
                     }
 
                     let arg = {
-                        index: mark
+                        index: mark,
+                        level: 0
                     }
 
                     let topBtn = layout.querySelector('.goTop')
@@ -2191,7 +2117,7 @@ class DcmController {
                         this.scrollto(arg.index, Number(slider.value))
                     })
 
-                    pushBtn(key, layout, btnFuns.main)
+                    pushBtn(key, layout, btnFuns.main, arg)
                     pushDivider(key, layout)
                     pushBtn(key, layout, btnFuns.sub)
 
@@ -2199,26 +2125,36 @@ class DcmController {
                 } else if (layout.dataset['layoutType'] == 'volume') {
                     const btnFuns = {
                         main: [
-                            funcbtns.sizeControl,
+                            funcbtns.sizeControl
                         ],
                         sub: [
                         ]
                     }
 
-                    pushBtn(key, layout, btnFuns.main)
+                    let arg = {
+                        index: mark,
+                        level: 0
+                    }
+
+                    pushBtn(key, layout, btnFuns.main, arg)
                     pushDivider(key, layout)
                     pushBtn(key, layout, btnFuns.sub)
                 } else if (layout.dataset['layoutType'] == 'cad') {
                     const btnFuns = {
                         main: [
-
+                            funcbtns.sizeControl
                         ],
                         sub: [
 
                         ]
                     }
 
-                    pushBtn(key, layout, btnFuns.main)
+                    let arg = {
+                        index: mark,
+                        level: 0
+                    }
+
+                    pushBtn(key, layout, btnFuns.main, arg)
                     pushDivider(key, layout)
                     pushBtn(key, layout, btnFuns.sub)
 
@@ -2226,6 +2162,8 @@ class DcmController {
                     const btnFuns = {
                         main: [
                             funcbtns.enableCardiac,
+                            funcbtns.enableTooth,
+                            funcbtns.enableBrain,
                             funcbtns.enableBody
                         ],
                         sub: [
@@ -2248,9 +2186,9 @@ class DcmController {
 
             manager.addNotifyEvent(() => {
                 this.updateVolume();
-            });
+            }, 'segmentUpdate');
 
-            let base = manager.state.baseSegment
+            let base = manager.state.volume
             if (base == null) {
                 return
             }

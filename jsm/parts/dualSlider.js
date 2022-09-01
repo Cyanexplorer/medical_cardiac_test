@@ -33,8 +33,8 @@ class dualSlider {
         })
 
         this.dispatchEvent = (event) => {
-            this.lowerBound.dispatchEvent(event)
             this.distance.dispatchEvent(event)
+            this.lowerBound.dispatchEvent(event)
         }
     }
 
@@ -74,16 +74,12 @@ class dualSlider {
         return this.getLowerValue() * 1 + this.getRange() * 1
     }
 
-    /**
-     * 
-     * 0:lowerBound監聽事件激活
-     * 1:distance
-     * 
-     */
-    event = (cb) => {
+
+    //cb(lowerbound, higerbound, group)
+    event = (cb) => {        
         this.lowerBound.addEventListener('input', () => {
             cb(this.getLowerValue() * 1, this.getHigherValue() * 1, 0)
-        })
+        })        
         this.distance.addEventListener('input', () => {
             cb(this.getLowerValue() * 1, this.getHigherValue() * 1, 1)
         })

@@ -1,446 +1,56 @@
-
 import { Growing, SizeBased, Logic, Scissor, Kernel } from "./Algorithm.js"
 import { Segment } from '../model/Segment.js'
 import { SegTools } from "./template.js"
 import { BinaryArray, BinaryArray3DContainer, TypedArray3DContainer } from "../model/ExtendedArray.js"
 
-class ImageProcess {
+class MaskProcess {
+    static trilinearScale = (inputData, outputData, inputDims, outputDims) => {
+        let template = new BinaryArray3DContainer(inputData, inputDims[0], inputDims[1], inputDims[2], 0)
+
+        let pos = 0
+        let ratio = [inputDims[0] / outputDims[0], inputDims[1] / outputDims[1], inputDims[2] / outputDims[2]]
+
+        for (let i = 0; i < outputDims[2]; i++) {
+            let posz = i * ratio[2]
+            let zmin = Math.floor(posz)
+            let zmax = zmin + 1
+            let fz = posz - zmin
+            let ifz = 1 - fz
+
+            for (let j = 0; j < outputDims[1]; j++) {
+                let posy = j * ratio[1]
+                let ymin = Math.floor(posy)
+                let ymax = ymin + 1
+                let fy = posy - ymin
+                let ify = 1 - fy
+
+                for (let k = 0; k < outputDims[0]; k++) {
+                    let posx = k * ratio[0]
+                    let xmin = Math.floor(posx)
+                    let xmax = xmin + 1
+                    let fx = posx - xmin
+                    let ifx = 1 - fx
+
+                    let cdf0 = template.getValue3D(xmin, ymin, zmin)
+                    let cdf1 = template.getValue3D(xmax, ymin, zmin)
+                    let cdf2 = template.getValue3D(xmin, ymax, zmin)
+                    let cdf3 = template.getValue3D(xmax, ymax, zmin)
+                    let cdf4 = template.getValue3D(xmin, ymin, zmax)
+                    let cdf5 = template.getValue3D(xmax, ymin, zmax)
+                    let cdf6 = template.getValue3D(xmin, ymax, zmax)
+                    let cdf7 = template.getValue3D(xmax, ymax, zmax)
+
+                    let out = ((ifx * cdf0 + fx * cdf1) * ify + (ifx * cdf2 + fx * cdf3) * fy) * ifz
+                        + ((ifx * cdf4 + fx * cdf5) * ify + (ifx * cdf6 + fx * cdf7) * fy) * fz
+
+                    outputData[pos++] = out * 255
+                }
+            }
+        }
+    }
+
     constructor() {
-        this.postprocess = async (imageData, stored, type, inverted, onload) => {
 
-            let dataBuffer = imageData.data
-
-            if (stored == -1) {
-                console.log('Format not support.')
-                return
-            }
-
-            let max = 2 ** stored
-
-            if (type == 0) {
-                mapHE(imageData, max)
-            } else if (type == 1) {
-                mapLog(imageData, max)
-            } else if (type == 2) {
-                mapCLHE(imageData, max)
-            } else if (type == 3) {
-                mapCLAHE(imageData, max)
-            } else if (type == 4) {
-                mapResize(imageData, max)
-            } else if (type == 5) {
-                mapCLAHE2D(imageData, max)
-            } else if (type == 6) {
-                mapiCLAHE(imageData, max)
-            } else if (type == 7) {
-                mapGradient(imageData, max)
-            } else if (type == 8) {
-                mapSharpen(imageData, max)
-            }
-
-            if (inverted) {
-
-                let scalar = max - 1;
-                for (let i = 0; i < dataBuffer.length; i++) {
-                    dataBuffer[i] = scalar - dataBuffer[i];
-                }
-            }
-
-            onload()
-        }
-
-        // 待修正
-        let mapSharpen = (imageData, max) => {
-            let dataBuffer = imageData.data
-            let dims = imageData.dims
-
-            let kernelSize = paddingSize * 2 + 1
-            let kernel = new Array(kernelSize * kernelSize * kernelSize).fill(-1)
-
-            let kLen = Math.pow(kernelSize, 3)
-            kernel[parseInt(kLen / 2) + 1] = kLen
-
-            let kDims = [kernelSize, kernelSize, kernelSize]
-
-            convolution_blur2(segment, kernel, kDims, paddingSize)
-            //-----------
-            let binData = segment.data
-            let backData = segment.backData
-            //let dims = segment.dims
-
-            let kOrder = kernelOrder(kDims)
-            let template = new BinaryArray3DContainer(backData, dims[0], dims[1], dims[2], 0)
-
-            backData.copyfrom(binData)
-
-            let kDimsHalf = [parseInt(kDims[0] / 2), parseInt(kDims[1] / 2), parseInt(kDims[2] / 2)]
-
-            let calculate = (x, y, z) => {
-
-                let p = 0
-
-                x -= kDimsHalf[0]
-                y -= kDimsHalf[1]
-                z -= kDimsHalf[2]
-
-                for (let i = 0; i < kOrder.length; i++) {
-
-                    let order = kOrder[i]
-
-                    let kPos_x = Math.abs(x + order[0])
-                    let kPos_y = Math.abs(y + order[1])
-                    let kPos_z = Math.abs(z + order[2])
-
-                    p += kernel[i] * template.getValueWithPadding3D(kPos_x, y + kPos_y, kPos_z)
-
-                }
-
-                return p
-            }
-
-            let pos = 0
-            let i, j, k, p
-
-            for (i = 0; i < dims[2]; i++) {
-                for (j = 0; j < dims[1]; j++) {
-                    for (k = 0; k < dims[0]; k++) {
-                        p = binData.getBit(pos) * 0.9 + calculate(k, j, i) * 0.1
-                        p = Math.min(Math.max(p, 0), 65535)
-
-                        pos++
-                    }
-                }
-            }
-        }
-
-        this.mapGradient = (imageData, max) => {
-            let dataBuffer = imageData.data
-            let dims = imageData.dims
-
-            //this.normalize(result, 0.8);
-        };
-
-        let mapiCLAHE = (imageData, max) => {
-            let dataBuffer = imageData.data
-            let dims = imageData.dims
-
-            let d1 = dataBuffer
-            let d2 = dataBuffer.slice()
-
-            mapCLAHE(d1, max, dims)
-            mapHE(d2, max)
-
-            for (let i = 0; i < dataBuffer.length; i++) {
-                dataBuffer[i] = d1[i] * 0.5 + d2[i] * 0.5
-            }
-
-            //mapHE(dataBuffer, dims)
-
-        }
-
-        let mapCLAHE2D = (imageData) => {
-            let dataBuffer = imageData.data
-            let dims = imageData.dims
-
-            let src = new cv.Mat()
-
-            switch (dataBuffer.BYTES_PER_ELEMENT) {
-                case 1:
-                    src = new cv.Mat(dims[0], dims[1], cv.CV_8UC1)
-                    break
-                case 2:
-                    src = new cv.Mat(dims[0], dims[1], cv.CV_16UC1)
-                    break
-                default:
-                    return
-            }
-
-            console.log(src)
-
-            let step = dims[0] * dims[1]
-            let claheDst = new cv.Mat()
-            let tiltGridSize = new cv.Size(8, 8)
-            let clahe = new cv.CLAHE(40, tiltGridSize)
-
-            for (let i = 0; i < dims[2]; i++) {
-
-                for (let j = 0; j < step; j++) {
-                    src.data[j] = dataBuffer[j + i * step]
-                }
-
-                clahe.apply(src, claheDst)
-
-                dataBuffer.set(claheDst.data, i * step)
-            }
-        }
-
-        let mapResize = (imageData, max) => {
-            let dataBuffer = imageData.data
-            let dims = imageData.dims
-
-            let mm = getMinMax(dataBuffer)
-            let ratio = (max - 1) / (mm.max - mm.min)
-            for (let i = 0; i < dataBuffer.length; i++) {
-                dataBuffer[i] = (dataBuffer[i] - mm.min) * ratio
-            }
-        }
-
-        let mapLog = (imageData, max) => {
-            let dataBuffer = imageData.data
-            let dims = imageData.dims
-
-            for (let i = 0; i < dataBuffer.length; i++) {
-                dataBuffer[i] = Math.log10(dataBuffer[i])
-            }
-
-            let mm = getMinMax(dataBuffer)
-            let ratio = (max - 1) / (mm.max - mm.min)
-            for (let i = 0; i < dataBuffer.length; i++) {
-                dataBuffer[i] = (dataBuffer[i] - mm.min) * ratio
-            }
-        }
-
-        let equalization = (histogram, max) => {
-            let minIndex, maxIndex
-
-            for (minIndex = 0; minIndex < histogram.length; minIndex++) {
-                if (histogram[minIndex] > 0)
-                    break
-            }
-
-            for (maxIndex = histogram.length - 1; maxIndex > minIndex; maxIndex--) {
-                if (histogram[maxIndex] > 0)
-                    break
-            }
-
-            for (let i = minIndex + 1; i < histogram.length; i++) {
-                histogram[i] += histogram[i - 1]
-            }
-
-
-
-            let maxCDF = histogram[maxIndex]
-            let minCDF = histogram[minIndex]
-            let ratio = (max - 1) / (maxCDF - minCDF)
-
-            for (let i = minIndex; i < histogram.length; i++) {
-                histogram[i] = Math.round((histogram[i] - minCDF) * ratio)
-            }
-
-        }
-
-        let contrastLimit = (histogram, limit) => {
-
-            let counter = 0
-            let total = 0
-            let remain = histogram.length
-            for (let i = 0; i < histogram.length; i++) {
-                total += histogram[i]
-                if (histogram[i] > limit) {
-                    counter += (histogram[i] - limit)
-                    histogram[i] = limit
-                    remain--
-                }
-            }
-
-            if (counter / 2 >= total) {
-                let value = total / histogram.length
-                histogram.fill(value)
-                return
-            }
-
-            //console.log(counter, upper, limit)
-            while (counter > 0) {
-                let offset = counter / remain
-                let upper = limit - offset
-                for (let i = 0; i < histogram.length; i++) {
-                    if (histogram[i] > upper) {
-                        counter -= limit - histogram[i]
-                        histogram[i] = limit
-                        remain--
-                    } else {
-                        counter -= offset
-                        histogram[i] += offset
-                    }
-                }
-                //console.log(counter)
-            }
-
-
-            //console.log(histogram)
-        }
-
-
-
-        let mapCLAHE = (imageData, max) => {
-            let dataBuffer = imageData.data
-            let dims = imageData.dims
-
-            let blockSize = 64
-
-            let tiles = [
-                Math.ceil(dims[0] / blockSize),
-                Math.ceil(dims[1] / blockSize),
-                Math.ceil(dims[2] / blockSize)]
-
-            let cdfs = new Uint32Array(tiles[2] * tiles[1] * tiles[0] * max).fill(0)
-
-            let dims01 = dims[0] * dims[1]
-            let dims0 = dims[0]
-
-            let getPosition = (x, y, z) => {
-                return dims01 * z + dims0 * y + x
-            }
-
-            let tiles01 = tiles[0] * tiles[1]
-            let tiles0 = tiles[0]
-
-            let getTilesPos = (x, y, z) => {
-                return tiles01 * z + tiles0 * y + x
-            }
-
-
-            let buildcdf = (x, y, z, kDims) => {
-                let histogram = new Uint32Array(max).fill(0)
-
-                let i, j, k, index
-
-                for (i = 0; i < kDims[2]; i++) {
-                    for (j = 0; j < kDims[1]; j++) {
-                        for (k = 0; k < kDims[0]; k++) {
-                            index = getPosition(x + k, y + j, z + i)
-                            histogram[dataBuffer[index]]++
-                        }
-                    }
-                }
-
-                let climit = kDims[0] * kDims[1] * kDims[2] * 0.2
-                contrastLimit(histogram, climit)
-
-                //equalization
-                equalization(histogram, max)
-
-                return histogram
-            }
-
-            let i, j, k, p = 0
-            let kDims = new Array(3).fill(blockSize)
-            let rDims = [dims[0] % blockSize, dims[1] % blockSize, dims[2] % blockSize]
-            let limit = [dims[0] - blockSize, dims[1] - blockSize, dims[2] - blockSize]
-
-            for (i = 0; i < dims[2]; i += blockSize) {
-
-                kDims[2] = limit[2] >= i ? blockSize : rDims[2]
-
-                for (j = 0; j < dims[1]; j += blockSize) {
-
-                    kDims[1] = limit[1] >= j ? blockSize : rDims[1]
-
-                    for (k = 0; k < dims[0]; k += blockSize) {
-
-                        kDims[0] = limit[0] >= k ? blockSize : rDims[0]
-
-                        cdfs.set(buildcdf(k, j, i, kDims), p)
-                        p += max
-
-                    }
-                }
-            }
-
-            let pos = 0
-            for (i = 0; i < dims[2]; i++) {
-                let posz = i / blockSize - 0.5
-                let zmin = Math.max(Math.floor(posz), 0)
-                let zmax = Math.min(zmin + 1, tiles[2] - 1)
-                let fz = posz - zmin
-                let ifz = 1 - fz
-
-                for (j = 0; j < dims[1]; j++) {
-                    let posy = j / blockSize - 0.5
-                    let ymin = Math.max(Math.floor(posy), 0)
-                    let ymax = Math.min(ymin + 1, tiles[1] - 1)
-                    let fy = posy - ymin
-                    let ify = 1 - fy
-
-                    for (k = 0; k < dims[0]; k++) {
-                        let posx = k / blockSize - 0.5
-                        let xmin = Math.max(Math.floor(posx), 0)
-                        let xmax = Math.min(xmin + 1, tiles[0] - 1)
-                        let fx = posx - xmin
-                        let ifx = 1 - fx
-
-                        let pixel = dataBuffer[pos]
-
-                        let cdf0 = cdfs[getTilesPos(xmin, ymin, zmin) * max + pixel]
-                        let cdf1 = cdfs[getTilesPos(xmax, ymin, zmin) * max + pixel]
-                        let cdf2 = cdfs[getTilesPos(xmin, ymax, zmin) * max + pixel]
-                        let cdf3 = cdfs[getTilesPos(xmax, ymax, zmin) * max + pixel]
-                        let cdf4 = cdfs[getTilesPos(xmin, ymin, zmax) * max + pixel]
-                        let cdf5 = cdfs[getTilesPos(xmax, ymin, zmax) * max + pixel]
-                        let cdf6 = cdfs[getTilesPos(xmin, ymax, zmax) * max + pixel]
-                        let cdf7 = cdfs[getTilesPos(xmax, ymax, zmax) * max + pixel]
-
-                        /*let out = ifx * ify * ifz * cdf0
-                         + fx * ify * ifz * cdf1
-                         + ifx * fy * ifz * cdf2
-                         + fx * fy * ifz * cdf3
-                         + ifx * ify * fz * cdf4
-                         + fx * ify * fz * cdf5
-                         + ifx * fy * fz * cdf6
-                         + fx * fy * fz * cdf7
-                         */
-
-                        let out = ((ifx * cdf0 + fx * cdf1) * ify + (ifx * cdf2 + fx * cdf3) * fy) * ifz
-                            + ((ifx * cdf4 + fx * cdf5) * ify + (ifx * cdf6 + fx * cdf7) * fy) * fz
-
-
-                        dataBuffer[pos++] = out >= max ? max - 1 : out//* 3 / 4
-                    }
-                }
-            }
-
-
-            //console.log(cdfs)
-            //mapHE(dataBuffer, max)
-
-        }
-
-        let mapCLHE = (imageData, max) => {
-            let dataBuffer = imageData.data
-            let dims = imageData.dims
-
-            let histogram = new Uint32Array(max).fill(0)
-
-
-            for (let i = 0; i < dataBuffer.length; i++) {
-                histogram[dataBuffer[i]]++
-            }
-
-            let limit = dataBuffer.length / max
-
-            contrastLimit(histogram, limit)
-
-            equalization(histogram, max)
-
-            for (let i = 0; i < dataBuffer.length; i++) {
-                dataBuffer[i] = chistogramdf[dataBuffer[i]]
-            }
-        }
-
-        let mapHE = (imageData, max) => {
-            let dataBuffer = imageData.data
-
-            let histogram = new Uint32Array(max).fill(0)
-
-            for (let i = 0; i < dataBuffer.length; i++) {
-                histogram[dataBuffer[i]]++
-            }
-
-            equalization(histogram, max)
-
-            for (let i = 0; i < dataBuffer.length; i++) {
-                dataBuffer[i] = histogram[dataBuffer[i]]
-            }
-        }
     }
 }
 
@@ -686,53 +296,57 @@ class FilterTools extends SegTools {
         }
         this.selectedMode = this.mode.ERODE
         this.psize = 1
+
+        let operation = new Kernel(state.info.dims)
+
+        this.process = async () => {
+
+            return new Promise(async (resolve, reject) => {
+                if (!this.enable) {
+                    reject()
+                    return
+                }
+
+
+
+                let index = this.state.focusedSegIndex
+                let segment = this.state.focusedSegment
+
+                if (index == -1 || segment == null) {
+                    return
+                }
+
+                this.onstart()
+
+                switch (this.selectedMode) {
+                    case this.mode.ERODE:
+                        await operation.erode(segment)
+                        break
+                    case this.mode.DILATE:
+                        await operation.dilate(segment)
+                        break
+                    case this.mode.MEDIUM:
+                        await operation.medium(segment, this.psize)
+                        break
+                    case this.mode.GAUSSIAN:
+                        await operation.gaussian(segment, this.psize)
+                        break
+                    case this.mode.OPEN:
+                        await operation.open(segment, this.psize)
+                        break
+                    case this.mode.CLOSE:
+                        await operation.close(segment, this.psize)
+                        break
+                }
+
+                this.onload()
+                resolve()
+            })
+
+        }
     }
 
-    process = async () => {
 
-        return new Promise(async (resolve, reject) => {
-            if (!this.enable) {
-                reject()
-                return
-            }
-
-            let operation = new Kernel()
-
-            let index = this.state.focusedSegIndex
-            let segment = this.state.focusedSegment
-
-            if (index == -1 || segment == null) {
-                return
-            }
-
-            this.onstart()
-
-            switch (this.selectedMode) {
-                case this.mode.ERODE:
-                    await operation.erode(segment)
-                    break
-                case this.mode.DILATE:
-                    await operation.dilate(segment)
-                    break
-                case this.mode.MEDIUM:
-                    await operation.medium(segment, this.psize)
-                    break
-                case this.mode.GAUSSIAN:
-                    await operation.gaussian(segment, this.psize)
-                    break
-                case this.mode.OPEN:
-                    await operation.open(segment, this.psize)
-                    break
-                case this.mode.CLOSE:
-                    await operation.close(segment, this.psize)
-                    break
-            }
-
-            this.onload()
-            resolve()
-        })
-
-    }
 }
 
 class GrowingTools extends SegTools {
@@ -746,30 +360,72 @@ class GrowingTools extends SegTools {
             SHRINK: 3,
             BALLOON: 4,
             EXCLUDE: 5,
-            REGION: 6,
-            BORDER: 7
+            FILL: 6,
+            BORDER: 7,
+            NORMAL2D: 8,
+            PRESERVE2D: 9,
+            REMOVE2D: 10,
+            EXCLUDE2D: 11,
+            FILL2D: 12,
+            PREVIEW2D: 13
         }
 
         this.selectedMode = this.mode.NORMAL
+        this.serial = false
         this.bias = 0
         this.margin = 0
+        this.radius = 5
+
+        let dims = this.state.volume.dims;
+        let algorithm = new Growing(dims);
+        let penPosition = []
+        let pos
 
         maskImages.forEach((mimg, index) => {
+            mimg.controller.addEventListener('pointermove', (evt) => {
+                if (!this.enable) {
+                    return
+                }
+
+                penPosition = getMousePos(mimg.controller, evt)
+
+                mimg.clearControllerTrack()
+                mimg.setControllerTrack(penPosition, this.radius, 'rgba(255,255,255,0.6)')
+
+                switch (index) {
+                    case axisUV:
+                        pos = getMousePosByScalar(mimg.controller, evt, [dims[0], dims[1]])
+                        this.process(parseInt(pos[0]), parseInt(pos[1]), mimg.index)
+                        break
+                    case axisUD:
+                        pos = getMousePosByScalar(mimg.controller, evt, [dims[0], dims[2]])
+                        this.process(parseInt(pos[0]), mimg.index, parseInt(pos[1]))
+                        break
+                    case axisVD:
+                        pos = getMousePosByScalar(mimg.controller, evt, [dims[1], dims[2]])
+                        this.process(this.state.volume.dims[0] - mimg.index - 1, parseInt(pos[0]), parseInt(pos[1]))
+                        break
+                    default:
+                        break
+                }
+            })
             mimg.controller.addEventListener('click', (evt) => {
                 if (!this.enable) {
                     return
                 }
 
-                let pos = getMousePos(mimg.controller, evt)
                 switch (index) {
                     case axisUV:
-                        this.process(pos[0], pos[1], mimg.index)
+                        pos = getMousePosByScalar(mimg.controller, evt, [dims[0], dims[1]])
+                        this.process(parseInt(pos[0]), parseInt(pos[1]), mimg.index)
                         break
                     case axisUD:
-                        this.process(pos[0], mimg.index, pos[1])
+                        pos = getMousePosByScalar(mimg.controller, evt, [dims[0], dims[2]])
+                        this.process(parseInt(pos[0]), mimg.index, parseInt(pos[1]))
                         break
                     case axisVD:
-                        this.process(this.state.baseSegment.dims[0] - mimg.index - 1, pos[0], pos[1])
+                        pos = getMousePosByScalar(mimg.controller, evt, [dims[1], dims[2]])
+                        this.process(this.state.volume.dims[0] - mimg.index - 1, parseInt(pos[0]), parseInt(pos[1]))
                         break
                     default:
                         break
@@ -777,7 +433,21 @@ class GrowingTools extends SegTools {
             })
         })
 
-        let algorithm, dims, result
+        this.preview = (x, y, layerIndex, data) => {
+            let index = this.state.focusedSegIndex
+            let segment = this.state.focusedSegment
+
+            if (index == -1 || segment == null) {
+                return
+            }
+
+            let segData = segment;
+            let baseData = this.state.volume.data;
+            let maxVal = 2 ** this.state.info.bitsStored
+            let diff = this.bias * maxVal
+
+            algorithm.regionGrowing2D(x, y, layerIndex, baseData, diff, segData)
+        }
 
         this.process = (x, y, layerIndex) => {
             //console.log(this.selectedMode)
@@ -793,17 +463,9 @@ class GrowingTools extends SegTools {
             }
 
             let segData = segment;
-            let baseData = this.state.baseSegment.data;
+            let baseData = this.state.volume.data;
             let maxVal = 2 ** this.state.info.bitsStored
             let diff = this.bias * maxVal
-
-            if (algorithm == null) {
-                dims = this.state.baseSegment.dims;
-                algorithm = new Growing(dims);
-                result = new BinaryArray(segData.length);
-            }
-
-            result.clear();
 
             this.onstart();
 
@@ -816,43 +478,92 @@ class GrowingTools extends SegTools {
                 return true;
             };
 
+            if (!checkExist) {
+                return;
+            }
+
             let algo_type = algorithm.regionGrowing;
             if (this.type === this.mode.BORDER)
                 algo_type = algorithm.edgeDetector;
 
-            switch (this.selectedMode) {
-                case this.mode.NORMAL:
-                    algo_type(x, y, layerIndex, baseData, diff, this.margin, null, segData);
 
+            switch (this.selectedMode) {
+                // 3D區塊擴張
+                case this.mode.NORMAL:
+                    algorithm.regionGrowing(x, y, layerIndex, baseData, diff, segData);
                     break
                 case this.mode.PRESERVE:
-                    if (!checkExist) {
-                        return;
-                    }
-
-                    algorithm.regionPreserve(x, y, layerIndex, segData, this.margin, null, result);
-
-                    //segData.copyfrom(result);
+                    algorithm.regionPreserve(x, y, layerIndex, segData);
                     break;
                 case this.mode.REMOVE:
-                    if (!checkExist) {
-                        return;
-                    }
-
-                    algorithm.regionRemove(x, y, layerIndex, segData, this.margin, null, result)
-                    //Logic.boolean(result, segData.data)
+                    algorithm.regionRemove(x, y, layerIndex, segData);
                     break
-                case this.mode.GROW:
-                    break
-                case this.mode.SHRINK:
+                case this.mode.FILL:
+                    algorithm.regionFill(x, y, layerIndex, segData)
                     break
                 case this.mode.EXCLUDE:
-                    algorithm.holeFilling(x, y, layerIndex, baseData, segData, diff, this.margin, null, segData)
+                    algorithm.regionExclusive(x, y, layerIndex, baseData, diff, segData)
+                    break
+                // 2D區塊擴張
+                case this.mode.NORMAL2D:
+
+                    if (this.serial) {
+                        for (let i = 0; i < dims[2]; i++) {
+                            algorithm.regionGrowing2D(x, y, i, baseData, diff, segData)
+                        }
+                    }
+                    else {
+                        algorithm.regionGrowing2D(x, y, layerIndex, baseData, diff, segData)
+                    }
+                    break
+                case this.mode.PRESERVE2D:
+                    if (this.serial) {
+                        for (let i = 0; i < dims[2]; i++) {
+                            algorithm.regionPreserve2D(x, y, i, segData)
+                        }
+                    }
+                    else {
+                        algorithm.regionPreserve2D(x, y, layerIndex, segData)
+                    }
+                    break
+                case this.mode.REMOVE2D:
+                    if (this.serial) {
+                        for (let i = 0; i < dims[2]; i++) {
+                            algorithm.regionRemove2D(x, y, i, segData)
+                        }
+                    }
+                    else {
+                        algorithm.regionRemove2D(x, y, layerIndex, segData)
+                    }
+                    break
+                case this.mode.FILL2D:
+                    if (this.serial) {
+                        for (let i = 0; i < dims[2]; i++) {
+                            algorithm.regionFill2D(x, y, i, segData)
+                        }
+                    }
+                    else {
+                        algorithm.regionFill2D(x, y, layerIndex, segData)
+                    }
+
+                    break
+                case this.mode.EXCLUDE2D:
+                    if (this.serial) {
+                        for (let i = 0; i < dims[2]; i++) {
+                            algorithm.regionExclusive2D(x, y, i, baseData, diff, segData)
+                        }
+                    }
+                    else {
+                        algorithm.regionExclusive2D(x, y, layerIndex, baseData, diff, segData)
+                    }
+
                     break
                 default:
-                    console.error('Function not supporet.')
+                    alert('Function not supporet.')
                     break
             }
+
+
             //Logic.boolean(maskData, segData)
             this.onload()
         }
@@ -936,8 +647,10 @@ class CropTools extends SegTools {
             BALLOON: 5
         }
         this.ratio = 1
+
+        let dims = state.info.dims
         this.selectedMode = this.mode.SPHERE
-        let backup = new Segment('backup', [1, 1, 1], null, false)
+        let mask  = new BinaryArray(dims[0] * dims[1] * dims[2])
 
         let prebuildShape = null
         let pDims = new Array(3)
@@ -1104,7 +817,7 @@ class CropTools extends SegTools {
                             continue
                         }
                         //console.log(j)
-                        mask[iStep + jStep + k] = 1
+                        mask.setBit(iStep + jStep + k)
                     }
                 }
             }
@@ -1132,7 +845,7 @@ class CropTools extends SegTools {
                 for (j = FB[0]; j < FB[1]; j += 1) {
                     jStep = j * volDims[0]
                     for (k = LR[0]; k < LR[1]; k += 1) {
-                        mask[iStep + jStep + k] = 1
+                        mask.setBit(iStep + jStep + k)
                     }
                 }
             }
@@ -1171,7 +884,7 @@ class CropTools extends SegTools {
                             continue
                         }
                         //console.log(j)
-                        mask[iStep + jStep + parseInt(k)] = 1
+                        mask.setBit(iStep + jStep + parseInt(k))
                     }
                 }
             }
@@ -1222,8 +935,6 @@ class CropTools extends SegTools {
             let iStep, jStep, tiStep, tjStep
             let sample = 1 / size
 
-            console.log(sample)
-
             for (let i = zStart, ti = tiDiff; i < zEnd; i++, ti++) {
 
                 iStep = Math.round(i) * volDims[1] * volDims[0]
@@ -1235,26 +946,11 @@ class CropTools extends SegTools {
                     tjStep = Math.round(tj * sample) * pDims[0]
 
                     for (let k = xStart, tk = tkDiff; k < xEnd; k++, tk++) {
-                        mask[iStep + jStep + Math.round(k)] = prebuildShape[tiStep + tjStep + Math.round(tk * sample)]
+                        mask.setValue(prebuildShape[tiStep + tjStep + Math.round(tk * sample)], iStep + jStep + Math.round(k))
                     }
                 }
             }
 
-        }
-
-
-        let mask = null
-        //deprecated
-        let buildMask = function (volDims) {
-            let arraySize = volDims[0] * volDims[1] * volDims[2]
-
-            //檢查遮罩大小，重複利用資源以減少開銷
-            if (mask == null || mask.length != arraySize) {
-                return new Float32Array(arraySize).fill(0)
-            }
-            else {
-                return mask.fill(0)
-            }
         }
 
         let initPrebuildShape = () => {
@@ -1283,23 +979,22 @@ class CropTools extends SegTools {
                 return
             }
 
-            if (this.state.baseSegment == null) {
+            if (this.state.volume == null) {
                 return
             }
 
-            if (this.selectedMode == this.mode.RESET && backup == null) {
+            if (this.selectedMode == this.mode.RESET) {
                 return
             }
 
             this.onstart()
 
             this.state.option = 0
-            let segment = this.state.baseSegment
+            let segment = this.state.volume
             let data = segment.data
             let dims = segment.dims
-            let mask = segment.backData
 
-            mask.fill(0)
+            mask.clear()
 
             switch (this.selectedMode) {
                 case this.mode.SPHERE:
@@ -1324,14 +1019,14 @@ class CropTools extends SegTools {
                     break
             }
 
-            console.log(mask)
-
             //剪裁影像範圍
             for (let i = 0; i < data.length; i++) {
-                if (mask[i] == 0) {
+                if (mask.getBit(i) == 0) {
                     data[i] = 0
                 }
             }
+
+            segment.generateThumbnail()
 
             this.onload()
         }
@@ -1341,7 +1036,7 @@ class CropTools extends SegTools {
         }
 
         this.reset = () => {
-            this.state.baseDataReset()
+            this.state.volumeReset()
             this.state.generate()
             this.onload()
         }
@@ -1357,7 +1052,7 @@ class SizeBasedTools extends SegTools {
         let sb = null
         let sizeData = state.sizeData
         let rgba = state.colorSetting.rgba
-        let imageData = state.baseSegment
+        let imageData = state.volume
 
         this.process = () => {
             this.onstart()
@@ -1467,7 +1162,7 @@ class ScissorTools extends SegTools {
             return
         }
 
-        let dims = this.state.baseSegment.dims
+        let dims = this.state.volume.dims
         let ss = new Scissor(dims)
         let mask = ss.process(camera, img)
 
@@ -1541,7 +1236,7 @@ class ThresholdTools extends SegTools {
         }
 
         this.getAutoValue = () => {
-            let baseData = this.state.baseSegment.data
+            let baseData = this.state.volume.data
 
             let histogram = new Array(scalar).fill(0)
             let cvtColor = 0
@@ -1565,7 +1260,7 @@ class ThresholdTools extends SegTools {
             if (index == -1 || segment == null)
                 return
 
-            let baseData = this.state.baseSegment.data
+            let baseData = this.state.volume.data
             let segData = segment.data
 
             this.onstart()
@@ -1597,7 +1292,7 @@ class ThresholdTools extends SegTools {
             this.onload()
         }
 
-       
+
     }
 
 }
@@ -1617,7 +1312,7 @@ class ListControlTools extends SegTools {
 
         let create = () => {
             console.log(state)
-            if (this.state.baseSegment == null) {
+            if (this.state.volume == null) {
                 alert('image data not load!')
                 return false
             }
@@ -1625,7 +1320,7 @@ class ListControlTools extends SegTools {
             this.onstart(true)
 
             let color = this.colorList[this.state.segments.length % this.colorList.length]
-            let dims = [...this.state.baseSegment.dims]
+            let dims = [...this.state.volume.dims]
             let newSeg = new Segment('Segment', dims, color, true, true)
             this.state.segments.splice(this.state.focusedSegIndex + 1, 0, newSeg)
             this.state.focusedSegIndex++
@@ -1954,6 +1649,52 @@ class Histogram {
     }
 }
 
+class D3AxisHelper {
+    constructor(domElement, margin) {
+        let width = domElement.clientWidth - margin.left - margin.right
+        let height = domElement.clientHeight - margin.top - margin.bottom
+
+        // append the svg object to the specified element
+        let svg = d3.select(domElement)
+            .append('svg')
+            .attr('width', width + margin.left + margin.right)
+            .attr('height', height + margin.top + margin.bottom)
+            .append('g')
+            .attr('transform',
+                'translate(' + margin.left + ',' + margin.top + ')');
+
+        this.update = (xLength, yLength) => {
+            svg.selectAll('g').remove()
+            
+            // X axis: scale and draw:
+            let x = d3.scaleLinear()
+                .domain([1, 255])     // except 0 value pixels
+                .range([0, width]);
+
+            let ratio = xLength / 255
+
+            svg.append('g')
+                .attr('transform', 'translate(0,' + height + ')')
+                .call(
+                    d3.axisBottom(x)
+                        .tickFormat((d) => {
+                            return Math.round(d * ratio)
+                        })
+                );
+
+            // Y axis: scale and draw:
+            let y = d3.scaleLog()
+                .range([height, 0])
+                .domain([1, yLength]);
+
+            svg.append('g')
+                .call(
+                    d3.axisLeft(y)
+                );
+        }
+    }
+}
+
 class TransferTools2 extends SegTools {
     constructor(state, domElement) {
         super(state)
@@ -1974,25 +1715,31 @@ class TransferTools2 extends SegTools {
         this.xLength = 256
         this.yLength = 256
 
+        let margin = { top: 10, right: 10, bottom: 20, left: 40 }
+        let style = `width: calc(${(domElement.clientWidth - margin.left - margin.right)}px);height:calc(${(domElement.clientHeight - margin.top - margin.bottom)}px);position:absolute;top:${margin.top}px;left:${margin.left}px;`
         let histogram = new Float32Array(this.xLength * this.yLength)
+
+        //axis 繪製
+        let axishelper = new D3AxisHelper(domElement, margin)
 
         // 二維transfer function視圖
         let transferCanvas = document.createElement('canvas')
-        transferCanvas.style = 'width:100%;height:100%;'
+        transferCanvas.style = style
+        transferCanvas.style.background = 'black'//底色
         transferCanvas.width = this.xLength
         transferCanvas.height = this.yLength
         domElement.appendChild(transferCanvas)
 
         // user交互標記視圖，用來呈現鼠標選取的範圍
         let markCanvas = document.createElement('canvas')
-        markCanvas.style = 'width:100%;height:100%;position:absolute;top:0px;left:0px;'
+        markCanvas.style = style
         markCanvas.width = this.xLength
         markCanvas.height = this.yLength
         domElement.appendChild(markCanvas)
 
         // 選取範圍標記
         let markerDiv = document.createElement('div')
-        markerDiv.style = 'width:100%;height:100%;position:absolute;top:0px;left:0px;'
+        markerDiv.style = style
         domElement.appendChild(markerDiv)
 
         let markers = []
@@ -2040,6 +1787,7 @@ class TransferTools2 extends SegTools {
 
             this.markContext.restore()
         }
+
 
         let pushMarker = (posX, posY, cposX, cposY) => {
             let marker = {
@@ -2108,14 +1856,14 @@ class TransferTools2 extends SegTools {
             selected = null
         })
 
+        let kernelOperation = new Kernel(this.state.info.dims);
         let calculateGradients = () => {
 
             return new Promise(async (resolve, reject) => {
-                let imgData = this.state.baseSegment;
-                let tfData = state.transferData
+                let imgData = this.state.volume;
+                let tfData = this.state.transferData
 
-                let operation = new Kernel();
-                await operation.gradientMagnitude(imgData, tfData);
+                await kernelOperation.gradientMagnitude(imgData, tfData);
 
                 resolve()
             })
@@ -2124,29 +1872,55 @@ class TransferTools2 extends SegTools {
         let calculateDefault = () => {
 
             return new Promise(async (resolve) => {
-                let imgData = this.state.baseSegment;
-                let sizeData = state.transferData
+                let volume = this.state.volume;
+                let tfData = this.state.transferData
+                tfData.data.fill(0)
 
                 let onload = () => {
                     console.log('finished')
                     resolve()
                 }
 
-                setTimeout(() => {
-                    pushData(imgData.thumbnail, sizeData.data)
-                    onload()
-                }, 100)
+                //console.log(tfData)
+                let bit = state.info.bitsStored
+                let limit = 2 ** bit - 1
+
+                let max = 0
+                let counter = new Uint32Array(limit)
+
+                for (let i = 0; i < volume.length; i++) {
+                    counter[volume.data[i]]++
+                    if (max < counter[volume.data[i]]) {
+                        max = counter[volume.data[i]]
+                    }
+                }
+
+                max = Math.log10(max + 1) - 1
+                counter.fill(0)
+
+                for (let i = 0; i < volume.length; i++) {
+                    tfData.data[i] = (Math.log10(counter[volume.data[i]] + 1) - 1) / max * 255
+                    counter[volume.data[i]]++
+                }
+
+                //console.log(tfData.data)
+
+                onload()
             })
 
         };
 
-        let sb = null
+
+        let sb = new SizeBased(this.state.volume.thumbnailSize)
         let calculateSizeData = () => {
 
             return new Promise(async (resolve, reject) => {
-                let imgData = this.state.baseSegment;
-                let tfData = state.transferData
-                let rgba = state.colorSetting.rgba
+
+                let alpha = this.state.volume
+                let tfData = this.state.transferData
+                let rgba = this.state.colorSetting.rgba
+
+                pushData(alpha.data, tfData.data)
 
                 let onprogress = (_, p) => {
                     console.log(p)
@@ -2157,25 +1931,22 @@ class TransferTools2 extends SegTools {
                     resolve()
                 }
 
-                if (sb == null) {
-                    sb = new SizeBased(imgData, tfData, rgba)
-                }
-
-                await sb.process(onprogress, onload)
+                await sb.process(tfData, rgba, onprogress, onload)
 
             })
 
         };
 
         // 生成二維的transfer function視圖
-        let build2dHistogram = () => {
+        let build2dHistogram = (colormap) => {
 
             // 取淂CT的三維影像資料
-            let baseData = this.state.baseSegment.data;
-            let dims = this.state.baseSegment.dims
+            let baseData = this.state.volume.data;
 
-            let tfData = state.transferData.data
-            let maxVal = 2 ** state.info.bitsStored
+            let tfData = this.state.transferData.data
+            let colorLevel = 2 ** state.info.bitsStored
+
+            let maxHeight = getMinMax(tfData).max
 
             // 初始化畫布資料
             for (let i = 0; i < ctxData.data.length; i += 4) {
@@ -2186,7 +1957,7 @@ class TransferTools2 extends SegTools {
             let xIndex, yIndex, index;
 
             // 加速計算過程
-            let scalarX = (this.xLength - 1) / (maxVal - 1)
+            let scalarX = (this.xLength - 1) / (colorLevel - 1)
             let scalarY = (this.yLength - 1) / (255)
 
             // 畫布的資料類別為Uint8Clamped，會將輸入的數值強轉成整數
@@ -2194,6 +1965,7 @@ class TransferTools2 extends SegTools {
             histogram.fill(0)
 
             //將影像梯度的像素分布繪製成圖表
+
             for (let i = 0; i < baseData.length; i++) {
 
                 xIndex = Math.round(baseData[i] * scalarX);
@@ -2204,19 +1976,30 @@ class TransferTools2 extends SegTools {
                 histogram[index] += (1 - histogram[index]) / 255;
             }
 
-            let max = 1
+            let maxValue = 0.01
             for (let i = 0; i < histogram.length; i++) {
-                if (max < histogram[index]) {
-                    max = histogram[index]
+                if (maxValue < histogram[i]) {
+                    maxValue = histogram[i]
                 }
             }
 
             // 將計算結果回傳至畫布上
-            for (let i = 0; i < histogram.length; i++) {
-                ctxData.data[4 * i + 3] = histogram[i] / max * 255
+            let counter = 0
+            for (let i = 0; i < this.yLength; i++) {
+                for (let j = 0; j < this.xLength; j++) {
+                    let colorIndex = parseInt(j / this.xLength * 255)
+                    ctxData.data[4 * counter] = colormap[0][colorIndex] * 255
+                    ctxData.data[4 * counter + 1] = colormap[1][colorIndex] * 255
+                    ctxData.data[4 * counter + 2] = colormap[2][colorIndex] * 255
+                    ctxData.data[4 * counter + 3] = histogram[counter] / maxValue * 255
+                    counter++
+                }
             }
 
             this.displayContext.putImageData(ctxData, 0, 0);
+
+            
+            axishelper.update(colorLevel, maxHeight)
         }
 
         // 根據視圖的狀態設置樣板的標記範圍
@@ -2240,7 +2023,7 @@ class TransferTools2 extends SegTools {
                 // 清除樣板上的內容
                 segment.data.clear()
 
-                let baseData = state.baseSegment.data;
+                let baseData = state.volume.data;
                 let tfData = state.transferData.data
                 let maxVal = 2 ** state.info.bitsStored
 
@@ -2268,10 +2051,12 @@ class TransferTools2 extends SegTools {
         this.process = () => {
             return new Promise(async (resolve, reject) => {
                 // 未啟動前，強制返回
-                if (!this.enable) {
-                    reject()
-                    return
-                }
+                //if (!this.enable) {
+                //  reject()
+                //return
+                //}
+
+                let rgba = state.colorSetting.rgba
 
                 // 執行call
                 this.onstart()
@@ -2279,15 +2064,15 @@ class TransferTools2 extends SegTools {
                 switch (this.selectedMode) {
                     case this.mode.GRADIENT:
                         await calculateGradients();
-                        build2dHistogram()
+                        build2dHistogram(rgba)
                         break
                     case this.mode.SIZEDATA:
                         await calculateSizeData();
-                        build2dHistogram()
+                        build2dHistogram(rgba)
                         break
                     case this.mode.DEFAULT:
                         await calculateDefault();
-                        build2dHistogram()
+                        build2dHistogram(rgba, true)
                         break
                     case this.mode.APPLY:
                         await applyHistogramData()
@@ -2302,6 +2087,7 @@ class TransferTools2 extends SegTools {
                 resolve()
             })
         }
+
     }
 
     set enable(option) {
@@ -2314,4 +2100,4 @@ class TransferTools2 extends SegTools {
 
 }
 
-export { ImageProcess, ListControlTools, BrushTools, ThresholdTools, GrowingTools, FilterTools, LogicTools, CropTools, SizeBasedTools, ScissorTools, TransferTools2 }
+export { MaskProcess, ListControlTools, BrushTools, ThresholdTools, GrowingTools, FilterTools, LogicTools, CropTools, SizeBasedTools, ScissorTools, TransferTools2 }

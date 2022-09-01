@@ -58,7 +58,9 @@ class BinaryArray {
         this.data[ni] = this.data[ni] & ~mask | value << i;
     }
 
-    setBit = (index) => {
+    setBit = (index, value=1) => {
+        this.setValue(value, index)
+        return
         let ni = Math.floor(index / 8);
         let mask = 1 << (index % 8);
         this.data[ni] |= mask;

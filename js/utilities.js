@@ -79,32 +79,45 @@ let getMousePosNonScale = (canvas, evt) => {
     return [intX, intY]
 }
 
-let getMousePos = (canvas, evt) => {
+//獲取鼠標在物件上的百分比位置
+let getMouseRatio = (canvas, evt) => {
     let rect = canvas.getBoundingClientRect()
-    let scaleX = (evt.clientX - rect.left) * (canvas.width / rect.width)
-    let scaleY = (evt.clientY - rect.top) * (canvas.height / rect.height)
-    let intX = Math.round(scaleX)
-    let intY = Math.round(scaleY)
+    let scaleX = (evt.clientX - rect.left) / rect.width
+    let scaleY = (evt.clientY - rect.top) / rect.height
 
-    if (intX < 0) {
-        intX = 0
+    if (scaleX < 0) {
+        scaleX = 0
+    }
+    else if (scaleX > 1) {
+        scaleX = 1
     }
 
-    if (intY < 0) {
-        intY = 0
+    if (scaleY < 0) {
+        scaleY = 0
+    }
+    else if (scaleY > 1) {
+        scaleY = 1
     }
 
-    if (intX > canvas.width) {
-        intX = canvas.width
-    }
-
-    if (intY > canvas.height) {
-        intY = canvas.height
-    }
-
-    return [intX, intY]
+    return [scaleX, scaleY]
 }
 
+//獲取鼠標在物件上的座標位置
+let getMousePos = (canvas, evt) => {
+    let ratio = getMouseRatio(canvas, evt)
+
+    return [canvas.width * ratio[0], canvas.height * ratio[1]]
+}
+
+//獲取鼠標在物件上的百分比位置，並轉換至指定的座標空間
+let getMousePosByScalar = (canvas, evt, scalar) => {
+    let ratio = getMouseRatio(canvas, evt)
+
+    return [scalar[0] * ratio[0], scalar[1] * ratio[1]]
+}
+
+
+//比大小(Math.min/Math.max有參數的大小限制，故自定義函式)
 let getMinMax = function (dataBuffer) {
     let min = dataBuffer[0]
     let max = dataBuffer[0]
@@ -229,3 +242,12 @@ let getDataRange = (data) => {
     return -1
 }
 
+// 檢查radio form勾選項目的value
+let checkSubmitValue = (form) => {
+    let inputs = form.getElementsByTagName('input')
+    for(let inputDOM of inputs){
+        if(inputDOM.checked == true){
+            return inputDOM.value
+        }
+    }
+}

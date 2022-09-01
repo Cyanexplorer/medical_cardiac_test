@@ -1,6 +1,7 @@
 
 import { BinaryArray } from "./ExtendedArray.js"
-
+import { ImageProcess } from "../controller/ImageProcessingTools.js"
+import { MaskProcess } from "../controller/MaskProcessingTools.js"
 
 // CT影像資料類別
 class ImageData {
@@ -15,10 +16,9 @@ class ImageData {
         this.name = name;
         this.stored = stored
         this.data = data == null ? new Uint16Array(new SharedArrayBuffer(dims[0] * dims[1] * dims[2] * 2)).fill(0) : data;
-        this.backData = new Uint16Array(new SharedArrayBuffer(dims[0] * dims[1] * dims[2] * 2)).fill(0)
+        //this.backData = new Uint16Array(new SharedArrayBuffer(dims[0] * dims[1] * dims[2] * 2)).fill(0)
         this.sizeEnable = false;
         this.compressionRate = 1
-        
 
         if (Math.min(...dims) >= 512) {
             this.compressionRate = 8
@@ -198,11 +198,12 @@ class ImageData {
         };
 
         // 交換前景/背景資料
+        /*
         this.switchData = () => {
             let tmp = this.backData
             this.backData = this.data
             this.data = tmp
-        }
+        }*/
 
         this.applyMask = (mask) => {
             if (this.data.length != mask.length)
@@ -217,37 +218,10 @@ class ImageData {
 
 
         this.generateThumbnail = () => {
-            let size = this.thumbnailSize
 
             this.thumbnail.fill(0)
 
-            let tmp = document.createElement('canvas')
-            tmp.width = dims[0]
-            tmp.height = dims[1]
-            let ctx = tmp.getContext('2d')
-
-            let cvt = document.createElement('canvas')
-            cvt.width = size[0]
-            cvt.height = size[1]
-            let cvtctx = cvt.getContext('2d')
-
-            let img = ctx.getImageData(0, 0, this.dims[0], this.dims[1])
-
-            let size2 = size[0] * size[1]
-
-            for (let di = 0, ti = 0; di < this.dims[2]; di += this.compressionRate, ti++) {
-
-                this.imgLoader(axisUV, di, img.data)
-                
-                ctx.putImageData(img, 0, 0)
-                cvtctx.clearRect(0, 0, size[0], size[1])
-                cvtctx.drawImage(ctx.canvas, 0, 0, size[0], size[1])
-                let result = cvtctx.getImageData(0, 0, size[0], size[1])
-
-                for (let i = 0; i < size2; i++) {
-                    this.thumbnail[ti * size2 + i] = result.data[4 * i + 3]
-                }
-            }
+            new ImageProcess().trilinearScale(data, this.thumbnail, this.dims, this.thumbnailSize, stored, 8)
 
             //console.log(this.thumbnail, size2)
         }
@@ -274,6 +248,9 @@ class ImageData {
         return 2 ** this.stored
     }
 
+    get length() {
+        return this.dims[0] * this.dims[1] * this.dims[2];
+    }
 }
 
 class ImageData8 {
@@ -287,7 +264,7 @@ class ImageData8 {
         this.dims = [...dims];
         this.name = name;
         this.data = data == null ? new Uint8Array(new SharedArrayBuffer(dims[0] * dims[1] * dims[2])).fill(0) : data;
-        this.backData = new Uint8Array(new SharedArrayBuffer(dims[0] * dims[1] * dims[2])).fill(0)
+        //this.backData = new Uint8Array(new SharedArrayBuffer(dims[0] * dims[1] * dims[2])).fill(0)
         this.compressionRate = 1
 
         if (Math.min(...dims) >= 512) {
@@ -455,44 +432,15 @@ class ImageData8 {
         };
 
         // 交換前景/背景資料
-        this.switchData = () => {
+        /*this.switchData = () => {
             let tmp = this.backData
             this.backData = this.data
             this.data = tmp
-        }
+        }*/
 
         this.generateThumbnail = () => {
-            let size = this.thumbnailSize
-
             this.thumbnail.fill(0)
-
-            let tmp = document.createElement('canvas')
-            tmp.width = dims[0]
-            tmp.height = dims[1]
-            let ctx = tmp.getContext('2d')
-
-            let cvt = document.createElement('canvas')
-            cvt.width = size[0]
-            cvt.height = size[1]
-            let cvtctx = cvt.getContext('2d')
-
-            let img = ctx.getImageData(0, 0, this.dims[0], this.dims[1])
-
-            let size2 = size[0] * size[1]
-
-            for (let di = 0, ti = 0; di < this.dims[2]; di += this.compressionRate, ti++) {
-
-                this.imgLoader(axisUV, di, img.data)
-                
-                ctx.putImageData(img, 0, 0)
-                cvtctx.clearRect(0, 0, size[0], size[1])
-                cvtctx.drawImage(ctx.canvas, 0, 0, size[0], size[1])
-                let result = cvtctx.getImageData(0, 0, size[0], size[1])
-
-                for (let i = 0; i < size2; i++) {
-                    this.thumbnail[ti * size2 + i] = result.data[4 * i + 3]
-                }
-            }
+            new ImageProcess().trilinearScale(this.data, this.thumbnail, this.dims, this.thumbnailSize)
         }
     }
 
@@ -515,6 +463,10 @@ class ImageData8 {
 
     get maxVal() {
         return 256
+    }
+
+    get length() {
+        return this.dims[0] * this.dims[1] * this.dims[2];
     }
 
 }
@@ -548,8 +500,8 @@ class Segment {
         this.data = new BinaryArray(dims[0] * dims[1] * dims[2])
         this.data.fill(0)
 
-        this.backData = new BinaryArray(dims[0] * dims[1] * dims[2])
-        this.backData.fill(0)
+        //this.backData = new BinaryArray(dims[0] * dims[1] * dims[2])
+        //this.backData.fill(0)
 
         this.visible = visible
         this.sizeEnable = false
@@ -642,7 +594,6 @@ class Segment {
             let tmpSeg = new Segment(this.name, this.dims, this.color, this.visible);
             pushData(this.data.data, tmpSeg.data.data)
 
-            console.log(tmpSeg)
             return tmpSeg;
         }
 
@@ -660,53 +611,23 @@ class Segment {
                 alert('size mismatch')
             }
 
-
         };
 
         this.generateThumbnail = () => {
 
-            let size = this.thumbnailSize
-
-            size.push(size[0] * size[1] * size[2])
-
             this.thumbnail.fill(0)
 
-            let tmp = document.createElement('canvas')
-            tmp.width = dims[0]
-            tmp.height = dims[1]
-            let ctx = tmp.getContext('2d')
-
-            let cvt = document.createElement('canvas')
-            cvt.width = size[0]
-            cvt.height = size[1]
-            let cvtctx = cvt.getContext('2d')
-
-            let img = ctx.getImageData(0, 0, this.dims[0], this.dims[1])
-
-            let size2 = size[0] * size[1]
-
-            for (let di = 0, ti = 0; di < this.dims[2]; di += this.compressionRate, ti++) {
-
-                this.binaryLoader(axisUV, di, img.data)
-                
-                ctx.putImageData(img, 0, 0)
-                cvtctx.clearRect(0, 0, size[0], size[1])
-                cvtctx.drawImage(ctx.canvas, 0, 0, size[0], size[1])
-                let result = cvtctx.getImageData(0, 0, size[0], size[1])
-
-                for (let i = 0; i < size2; i++) {
-                    this.thumbnail[ti * size2 + i] = result.data[4 * i + 3]
-                }
-            }
+            MaskProcess.trilinearScale(this.data, this.thumbnail, this.dims, this.thumbnailSize)
 
         }
 
         // 交換前景/背景資料
+        /*
         this.switchData = () => {
             let tmp = this.backData
             this.backData = this.data
             this.data = tmp
-        }
+        }*/
 
     }
 
