@@ -250,4 +250,6 @@ let checkSubmitValue = (form) => {
             return inputDOM.value
         }
     }
+
+    return -1
 }

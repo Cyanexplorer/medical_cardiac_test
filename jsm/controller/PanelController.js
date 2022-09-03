@@ -15,51 +15,102 @@ let changeEvent = new Event('change')
 let clickEvent = new Event('click')
 let inputEvent = new Event('input')
 
-class ProgressBar {
-    constructor(title, cancel) {
-        let loadingText = document.getElementById('loadingText');
-        let progressCancelBtn = document.getElementById('progressCancelBtn');
-        let progressModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('progressModal'))
-        let loaderBody = document.getElementById('loaderBody')
-        let loaderCounter = document.getElementById('loadingCounter')
-        let loaderProgressBar = document.getElementById('loadingProgressBar')
+class ProgressRunner {
+    constructor(title) {
 
-        loadingText.innerHTML = title
-        if (cancel) {
-            progressCancelBtn.classList.remove("display", "none")
-            progressCancelBtn.classList.add("display", "inline")
-        } else {
-            progressCancelBtn.classList.remove("display", "inline")
-            progressCancelBtn.classList.add("display", "none")
-        }
-
+        // set parameters
         this.progressValue = 0
+        let progressBarEnable = false
 
-        let inv = null
+        let task = null
 
-        let frame = () => {
-            if (value == -1) {
-                loaderBody.classList.add('d-none');
-            } else {
-                loaderBody.classList.remove('d-none');
-                loaderCounter.innerHTML = `${progressValue}%`
-                loaderProgressBar.style.width = `${progressValue}%`
-            }
+        // create UI
+        let bg = document.createElement("div")
+        bg.classList.add("modal")
+        bg.classList.add("fade")
 
-        }
+        bg.tabIndex = -1
+        bg.ariaHidden = true
+        bg.ariaLabel = "loadingText"
+        bg.dataset.bs.backdrop = "static"
+        bg.dataset.bs.keyboard = "static"
+
+        let dialog = document.createElement("div")
+        dialog.classList.add("modal-dialog")
+
+        let content = document.createElement("div")
+        content.classList.add("modal-content")
+
+        let header = document.createElement("div")
+        header.classList.add("modal-header")
+
+        let titleDOM = document.createElement("div")
+        titleDOM.classList.add("modal-title")
+        titleDOM.innerHTML = title
+
+        let body = document.createElement("div")
+        body.classList.add("modal-body")
+
+        let progress = document.createElement("div")
+        progress.classList.add("progress")
+
+        let counter = document.createElement("p")
+
+        let bar = document.createElement("div")
+        bar.classList.add("rogress-bar")
+        bar.classList.add("w-100")
+
+        bar.role = "progressbar"
+        bar.ariaValueNow = 0
+        bar.ariaValueMin = 0
+        bar.ariaValueMax = 180
+
+        domElement.innerHTML += ""
+
+        progress.append(bar)
+        body.append(progress)
+        body.append(counter)
+
+        header.append(titleDOM)
+
+        content.append(header)
+        content.append(body)
+
+        dialog.append(content)
+
+        bg.append(dialog)
+
+        domElement.append(bg)
+
 
         this.start = () => {
-            inv = setInterval(this.task, 100);
+            task = setInterval(this.task, 100);
         };
 
         this.stop = () => {
-            clearInterval(inv);
+            clearInterval(task);
         };
+
+        this.setProgress = (value) => {
+
+            if (value == -1) {
+                bar.classList.add('animationBar')
+                counter.classList.add('d-none');
+            } else {
+                bar.classList.remove('animationBar')
+                counter.classList.remove('d-none');
+            }
+
+
+            value = Math.round(value * 1000) / 10
+            setTimeout(() => {
+                counter.innerHTML = `${value}%`
+                bar.style.width = `${value}%`
+            }, 10)
+
+        }
     }
 }
-
-let progressValue = 0
-let progressBarEnable = false
 
 let showProgress = function (option, title = 'processing', cancellable = false) {
 
@@ -74,7 +125,10 @@ let showProgress = function (option, title = 'processing', cancellable = false) 
             loadingText.innerHTML = title
             progressModal.show()
         } else {
-            progressModal.hide()
+            setTimeout(()=>{
+                progressModal.hide()
+            },500)
+
         }
 
         if (cancellable) {
@@ -1054,14 +1108,11 @@ class SegmentsPanel2 extends Page {
 
                         showProgress(true)
                         setProgress(-1)
+                        managers.transferTools.selectedMode = Number(selector.options[selector.selectedIndex].value)
 
-                        setTimeout(() => {
-                            managers.transferTools.selectedMode = Number(selector.options[selector.selectedIndex].value)
-
-                            managers.transferTools.process().then(() => {
-                                showProgress(false)
-                            })
-                        }, 500)
+                        managers.transferTools.process().then(() => {
+                            showProgress(false)
+                        })
 
                     })
 

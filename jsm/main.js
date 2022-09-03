@@ -3,7 +3,6 @@ import { PanelController } from "./controller/PanelController.js";
 import { ImageData } from './model/Segment.js'
 import { StateManager } from "./controller/StateManager.js"
 import { State } from "./model/State.js"
-import { Color } from "./build/three.module.js";
 
 let initUI = function () {
 
@@ -99,7 +98,6 @@ let initBlob = (managers) => {
 			}
 			reader.onload = () => {
 				let result = reader.result
-				//console.log(info)
 
 				let data = new Uint16Array(new SharedArrayBuffer(result.byteLength))
 				data.set(new Uint16Array(result))
